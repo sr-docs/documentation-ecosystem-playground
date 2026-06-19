@@ -1,0 +1,12 @@
+.workflow-stages {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.workflow-arrow {
+  font-size: 1.5rem;
+  color: #999;
+  line-height: 1;
+}

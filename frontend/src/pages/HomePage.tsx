@@ -1,19 +1,27 @@
-import WorkflowGrid from '../components/WorkflowGrid'
+import WorkflowStages from '../components/WorkflowStages'
 import ContextPanel from '../components/ContextPanel'
 import '../styles/HomePage.css'
 
-export default function HomePage() {
+interface HomePageProps {
+  selectedStage: string | null
+  onSelectStage: (stage: string | null) => void
+}
+
+export default function HomePage({ selectedStage, onSelectStage }: HomePageProps) {
   return (
     <div className="homepage">
-      <header className="title-area">
-        <h1>Documentation Ecosystem Portfolio</h1>
-        <p>Learn the design, automation, and operation of doc ecosystems</p>
-      </header>
+      <section className="hero">
+        <h1>Documentation Ecosystem Playground</h1>
+        <p>Explore how documentation moves through a modern system.</p>
+      </section>
 
-      <main className="content">
-        <WorkflowGrid />
-        <ContextPanel />
-      </main>
+      <section className="workflow">
+        <WorkflowStages selectedStage={selectedStage} onSelectStage={onSelectStage} />
+      </section>
+
+      <section className="context">
+        <ContextPanel selectedStage={selectedStage} />
+      </section>
     </div>
   )
 }
