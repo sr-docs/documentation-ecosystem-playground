@@ -1,23 +1,17 @@
-Visitor arrives
+## Visitor arrives
+They see the landing page and select Choose Experience
 
-What do they see?
+## Visitor chooses Create Content
+They see the Create Content overview page.
 
-Visitor chooses Create Content
+## Visitor begins
+They read the scenario. 
 
-What do they see?
+## Visitor enters GitHub
+They open the Github issue edit page.
 
-Visitor begins
-
-What happens?
-
-Visitor enters GitHub
-
-What page do they land on?
-
-Visitor opens PR
-
+## Visitor opens PR
 What feedback do they receive?
 
-Visitor completes workflow
-
+## Visitor completes workflow
 What evidence of completion do they see?
