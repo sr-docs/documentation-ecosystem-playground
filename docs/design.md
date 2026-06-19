@@ -1,7 +1,5 @@
 ## Purpose
-Traditional documentation portfolios showcase content. This project showcases documentation ecosystems.
-
-Learn by participating in a GitHub-native workflow. Observe the systems that enable documentation production.
+Learn the basics of Docs as Code by participating in a GitHub-native workflow. Observe the systems that enable documentation production.
 
 ## Core principles
 
