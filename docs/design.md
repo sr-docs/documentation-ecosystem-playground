@@ -20,7 +20,7 @@ Learn by participating in a GitHub-native workflow. Observe the systems that ena
 | ------- | ---------------- | ---------------- | --------------------- |
 | PLAN    | Define work      | Issue            | Workflow design       |
 | WRITE   | Create content   | Branch + Commit  | Content strategy      |
-| REVIEW  | Validate quality | Pull Request     | Collaboration systems |
+| REVIEW  | Validate quality | Pull Request     | Review and collaboration systems |
 | PUBLISH | Deploy docs      | GitHub Action    | Automation            |
 | OBSERVE | Iterate          | Issues + Updates | Operations            |
 
