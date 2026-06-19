@@ -1,0 +1,9 @@
+PLAN
+↓
+WRITE
+↓
+REVIEW
+↓
+PUBLISH
+↓
+OBSERVE
