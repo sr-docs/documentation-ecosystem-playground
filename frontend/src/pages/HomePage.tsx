@@ -5,9 +5,10 @@ import '../styles/HomePage.css'
 interface HomePageProps {
   selectedStage: string | null
   onSelectStage: (stage: string | null) => void
+  onTryStage: (stage: string) => void
 }
 
-export default function HomePage({ selectedStage, onSelectStage }: HomePageProps) {
+export default function HomePage({ selectedStage, onSelectStage, onTryStage }: HomePageProps) {
   return (
     <div className="homepage">
       <section className="hero">
@@ -20,7 +21,7 @@ export default function HomePage({ selectedStage, onSelectStage }: HomePageProps
       </section>
 
       <section className="context">
-        <ContextPanel selectedStage={selectedStage} />
+        <ContextPanel selectedStage={selectedStage} onTryStage={onTryStage} />
       </section>
     </div>
   )
