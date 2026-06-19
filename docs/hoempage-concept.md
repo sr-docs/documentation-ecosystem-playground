@@ -1,5 +1,0 @@
-- What is visible above the fold?
-- What is the primary interaction?
-- What does a visitor click first?
-- What does a hiring manager notice in the first 15 seconds?
-- What does the ecosystem visualization look like?
