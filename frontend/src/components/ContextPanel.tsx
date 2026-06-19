@@ -66,9 +66,10 @@ const stageContent = {
 
 interface ContextPanelProps {
   selectedStage: string | null
+  onTryStage: (stage: string) => void
 }
 
-export default function ContextPanel({ selectedStage }: ContextPanelProps) {
+export default function ContextPanel({ selectedStage, onTryStage }: ContextPanelProps) {
   const content = selectedStage ? stageContent[selectedStage as keyof typeof stageContent] : null
 
   return (
@@ -103,7 +104,7 @@ export default function ContextPanel({ selectedStage }: ContextPanelProps) {
               </ul>
             </div>
 
-            <button className="try-button" type="button">
+            <button className="try-button" type="button" onClick={() => onTryStage(selectedStage)}>
               Try This Stage
             </button>
           </div>
