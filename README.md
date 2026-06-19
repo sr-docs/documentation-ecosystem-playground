@@ -1,12 +1,10 @@
-# documentation-ecosystem-playground
-Documentation Ecosystem Playground is an interactive learning environment that teaches contributors how documentation moves through a modern GitHub-based workflow.
+# Welcome to the Documentation Ecosystem Playground 
+This is an interactive learning environment that demonstrates how modern documentation moves through a GitHub-native workflow, from planning and writing to review, automation, deployment, and maintenance.
 
 ## Purpose
-DIY and learn how documentation ecosystems can be designed, automated, and operated.
+This project is my documentation portfolio and showcases the systems, workflows, and automation that enable documentation at scale.
 
-## Tasks to try
-- Planning
-- Writing
-- Review
-- Publishing
-- Documentation Operations
+## Experiences to try
+Each stage of the content lifecycle offers DIY tasks that you can complete.
+
+PLAN → WRITE → REVIEW → PUBLISH → OBSERVE
