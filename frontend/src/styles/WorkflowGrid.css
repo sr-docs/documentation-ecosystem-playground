@@ -1,0 +1,35 @@
+.workflow-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+  max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.workflow-item {
+  padding: 1.5rem 1rem;
+  border: 1px solid #ddd;
+  background: white;
+  cursor: pointer;
+  text-align: center;
+  font-family: inherit;
+  font-size: 0.95rem;
+}
+
+.workflow-item:hover {
+  border-color: #999;
+  background: #f9f9f9;
+}
+
+.workflow-label {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #333;
+  margin-bottom: 0.5rem;
+}
+
+.workflow-title {
+  font-size: 0.9rem;
+  color: #666;
+}
