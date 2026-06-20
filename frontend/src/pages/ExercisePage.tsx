@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import '../styles/ExercisePage.css'
 
 interface ExercisePageProps {
@@ -10,66 +11,43 @@ const scenarioContent = {
     title: 'Documentation Planning Scenario',
     scenario:
       'Your team has built a new API for user authentication. The API is ready for release, but there is no documentation. Your product manager asks: "When can users start using this?" You realize documentation is the blocker.',
-    task: 'Create a documentation plan for the authentication API. Define what documentation is needed, who needs it, and success criteria.',
-    keyDecisions: [
-      'Identify the target audience (developers, integrators, internal teams)',
-      'List required documentation types (quick start, API reference, examples)',
-      'Define success metrics (adoption rate, support ticket reduction)',
-      'Set timeline and dependencies',
-    ],
+    task: 'Create a documentation plan for the authentication API.',
   },
   WRITE: {
     title: 'Documentation Writing Scenario',
     scenario:
       'The plan is approved. Your team has decided to write a quick start guide, API reference, and three integration examples. You are assigned to write the quick start guide.',
-    task: 'Outline and draft a quick start guide that gets developers up and running in 10 minutes. Consider: what is the minimal setup needed? What is a realistic first example?',
-    keyDecisions: [
-      'Choose between code examples and interactive tutorials',
-      'Decide what to include vs. defer to deeper documentation',
-      'Organize content for maximum clarity',
-      'Plan for different developer skill levels',
-    ],
+    task: 'Draft the first documentation artifact.',
   },
   REVIEW: {
     title: 'Documentation Review Scenario',
     scenario:
-      'The quick start guide draft is submitted for review. A team member has provided feedback: "This assumes users know how to set environment variables. We should add that step."',
-    task: 'Review the feedback critically. Is it a blocker? Nice-to-have? How would you respond? Propose concrete revisions.',
-    keyDecisions: [
-      'Evaluate feedback for accuracy and completeness',
-      'Prioritize revisions by impact and effort',
-      'Balance brevity with accessibility',
-      'Decide on example code style and consistency',
-    ],
+      'The quick start guide draft is submitted for review. Feedback has been provided and changes are required.',
+    task: 'Review and respond to feedback.',
   },
   PUBLISH: {
     title: 'Documentation Publishing Scenario',
     scenario:
-      'The quick start guide is approved. You need to publish it to your documentation site. The build process checks for broken links, validates code examples, and deploys to production.',
-    task: 'Plan the publication workflow. How will you test the documentation before publishing? What could go wrong?',
-    keyDecisions: [
-      'Validate all links and code examples',
-      'Test documentation build and rendering',
-      'Plan rollback strategy if issues arise',
-      'Set up monitoring for broken links after deployment',
-    ],
+      'The quick start guide is approved and ready for release.',
+    task: 'Prepare the documentation for publication.',
   },
   OBSERVE: {
     title: 'Documentation Observation Scenario',
     scenario:
-      'The quick start guide has been live for two weeks. You notice: 40% of users skip the quick start and go straight to the API reference. Support tickets mention confusion about environment setup.',
-    task: 'Analyze this feedback. What improvements would you make? What metrics matter most?',
-    keyDecisions: [
-      'Prioritize improvements based on user behavior',
-      'Update content based on support ticket patterns',
-      'Consider adding interactive elements or video tutorials',
-      'Plan iteration schedule and success metrics',
-    ],
+      'The documentation has been live for two weeks. User behavior and feedback are available.',
+    task: 'Evaluate effectiveness and identify improvements.',
   },
 }
 
-export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
-  const content = scenarioContent[stage as keyof typeof scenarioContent]
+export default function ExercisePage({
+  stage,
+  onBack,
+}: ExercisePageProps) {
+  const [workflowStarted, setWorkflowStarted] = useState(false)
+  const [artifactSubmitted, setArtifactSubmitted] = useState(false)
+
+  const content =
+    scenarioContent[stage as keyof typeof scenarioContent]
 
   if (!content) {
     return <div>Invalid stage</div>
@@ -78,37 +56,112 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
   return (
     <div className="exercise-page">
       <div className="exercise-header">
-        <button className="back-button" onClick={onBack} type="button">
+        <button
+          className="back-button"
+          onClick={onBack}
+          type="button"
+        >
           ← Back
         </button>
+
         <h1>{content.title}</h1>
       </div>
 
       <div className="exercise-content">
         <section className="exercise-section">
           <h2>The Scenario</h2>
-          <p className="scenario-text">{content.scenario}</p>
+
+          <p className="scenario-text">
+            {content.scenario}
+          </p>
         </section>
 
-        <section className="exercise-section">
-          <h2>Your Task</h2>
-          <p className="task-text">{content.task}</p>
-        </section>
+        {!workflowStarted && stage === 'PLAN' && (
+          <section className="exercise-section">
+            <h2>Workflow Outcome</h2>
 
-        <section className="exercise-section">
-          <h2>Key Decisions to Consider</h2>
-          <ul className="decisions-list">
-            {content.keyDecisions.map((decision, index) => (
-              <li key={index}>{decision}</li>
-            ))}
-          </ul>
-        </section>
+            <p className="task-text">
+              Planning produces a documentation issue that
+              defines the problem, audience, and success
+              criteria.
+            </p>
 
-        <section className="exercise-section">
-          <button className="begin-button" type="button">
-            Begin Exercise
-          </button>
-        </section>
+            <button
+              className="begin-button"
+              type="button"
+              onClick={() => setWorkflowStarted(true)}
+            >
+              Start Workflow
+            </button>
+          </section>
+        )}
+
+        {workflowStarted && stage === 'PLAN' && (
+          <section className="artifact-section">
+            <div className="artifact-header">
+              <h2>Documentation Planning Issue</h2>
+
+              <span className="artifact-badge">
+                Generated Artifact
+              </span>
+            </div>
+
+            <div className="artifact-card">
+              <div className="artifact-field">
+                <label>Title</label>
+
+                <input
+                  type="text"
+                  defaultValue="Create authentication API documentation"
+                />
+              </div>
+
+              <div className="artifact-field">
+                <label>Problem</label>
+
+                <textarea
+                  rows={4}
+                  defaultValue="Users cannot successfully integrate with the authentication API because no documentation currently exists."
+                />
+              </div>
+
+              <div className="artifact-field">
+                <label>Audience</label>
+
+                <input
+                  type="text"
+                  defaultValue="Developers integrating with the authentication API"
+                />
+              </div>
+
+              <div className="artifact-field">
+                <label>Success Criteria</label>
+
+                <textarea
+                  rows={4}
+                  defaultValue="Developers can authenticate successfully and complete their first API request without support."
+                />
+              </div>
+
+              {!artifactSubmitted ? (
+                <button
+                  className="submit-button"
+                  type="button"
+                  onClick={() => setArtifactSubmitted(true)}
+                >
+                  Submit Artifact
+                </button>
+              ) : (
+                <div className="artifact-success">
+                  Artifact submitted.
+                  <br />
+                  In a real documentation ecosystem, this issue
+                  would now enter the workflow.
+                </div>
+              )}
+            </div>
+          </section>
+        )}
       </div>
     </div>
   )
