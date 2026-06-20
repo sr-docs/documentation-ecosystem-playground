@@ -1,98 +1,129 @@
 .exercise-page {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-  padding: 2rem 1rem;
-  max-width: 900px;
-  margin: 0 auto;
+display: flex;
+flex-direction: column;
+min-height: 100vh;
+padding: 2rem 1rem;
+max-width: 900px;
+margin: 0 auto;
 }
 
 .exercise-header {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-  margin-bottom: 2rem;
+display: flex;
+align-items: center;
+gap: 1.5rem;
+margin-bottom: 2rem;
 }
 
 .back-button {
-  padding: 0.5rem 1rem;
-  background-color: #f0f0f0;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1rem;
-  transition: background-color 0.2s, border-color 0.2s;
+padding: 0.5rem 1rem;
+background-color: #f0f0f0;
+border: 1px solid #ddd;
+border-radius: 4px;
+cursor: pointer;
 }
 
 .back-button:hover {
-  background-color: #e0e0e0;
-  border-color: #999;
+background-color: #e6e6e6;
 }
 
 .exercise-header h1 {
-  margin: 0;
-  font-size: 2rem;
-  font-weight: 600;
+margin: 0;
 }
 
 .exercise-content {
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-  flex: 1;
+display: flex;
+flex-direction: column;
+gap: 2rem;
 }
 
 .exercise-section {
-  padding: 1.5rem;
-  background-color: #f9f9f9;
-  border-left: 4px solid #0066cc;
-  border-radius: 4px;
+padding: 1.5rem;
+background: #f8fafc;
+border-left: 4px solid #0066cc;
+border-radius: 6px;
 }
 
 .exercise-section h2 {
-  margin: 0 0 1rem 0;
-  font-size: 1.3rem;
-  font-weight: 600;
-  color: #333;
+margin-top: 0;
 }
 
 .scenario-text,
 .task-text {
-  margin: 0;
-  font-size: 1rem;
-  line-height: 1.6;
-  color: #444;
+line-height: 1.7;
 }
 
-.decisions-list {
-  margin: 0;
-  padding-left: 1.5rem;
+.begin-button,
+.submit-button {
+margin-top: 1rem;
+padding: 0.75rem 1.5rem;
+background: #0066cc;
+color: white;
+border: none;
+border-radius: 6px;
+cursor: pointer;
+font-weight: 600;
 }
 
-.decisions-list li {
-  margin-bottom: 0.75rem;
-  font-size: 1rem;
-  line-height: 1.5;
-  color: #444;
+.begin-button:hover,
+.submit-button:hover {
+background: #0052a3;
 }
 
-.begin-button {
-  align-self: flex-start;
-  padding: 0.75rem 2rem;
-  background-color: #0066cc;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.2s;
+.artifact-section {
+border: 1px solid #dbe3ec;
+border-radius: 8px;
+padding: 1.5rem;
+background: white;
 }
 
-.begin-button:hover {
-  background-color: #0052a3;
+.artifact-header {
+display: flex;
+justify-content: space-between;
+align-items: center;
+margin-bottom: 1rem;
 }
 
-.begin-button:active {
-  background-color: #003d7a;
+.artifact-badge {
+background: #eef6ff;
+color: #0066cc;
+padding: 0.35rem 0.75rem;
+border-radius: 999px;
+font-size: 0.85rem;
+font-weight: 600;
+}
+
+.artifact-card {
+display: flex;
+flex-direction: column;
+gap: 1rem;
+}
+
+.artifact-field {
+display: flex;
+flex-direction: column;
+gap: 0.5rem;
+}
+
+.artifact-field label {
+font-weight: 600;
+}
+
+.artifact-field input,
+.artifact-field textarea {
+width: 100%;
+padding: 0.75rem;
+border: 1px solid #cfd8e3;
+border-radius: 6px;
+font-size: 1rem;
+font-family: inherit;
+box-sizing: border-box;
+}
+
+.artifact-success {
+margin-top: 1rem;
+padding: 1rem;
+background: #eef9f0;
+border: 1px solid #9fd4aa;
+border-radius: 6px;
+color: #1f5f2f;
 }
