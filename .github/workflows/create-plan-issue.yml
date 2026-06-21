@@ -1,0 +1,53 @@
+name: Create PLAN Issue (Documentation Ecosystem)
+
+on:
+  workflow_dispatch:
+    inputs:
+      title:
+        description: "Issue title"
+        required: true
+      problem:
+        description: "Problem statement"
+        required: true
+      audience:
+        description: "Target audience"
+        required: true
+      success:
+        description: "Success criteria"
+        required: true
+
+jobs:
+  create_issue:
+    runs-on: ubuntu-latest
+
+    permissions:
+      issues: write
+
+    steps:
+      - name: Create GitHub Issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TITLE: ${{ github.event.inputs.title }}
+          PROBLEM: ${{ github.event.inputs.problem }}
+          AUDIENCE: ${{ github.event.inputs.audience }}
+          SUCCESS: ${{ github.event.inputs.success }}
+        run: |
+          BODY=$(cat <<EOF
+## Problem
+$PROBLEM
+
+## Audience
+$AUDIENCE
+
+## Success Criteria
+$SUCCESS
+
+---
+Created from Documentation Ecosystem Playground (PLAN stage)
+EOF
+)
+
+          gh issue create \
+            --title "[PLAYGROUND][PLAN] $TITLE" \
+            --body "$BODY" \
+            --label "playground,plan"  
