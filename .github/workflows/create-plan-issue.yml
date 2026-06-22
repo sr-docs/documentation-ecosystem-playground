@@ -1,0 +1,71 @@
+name: Documentation Ecosystem - Create PLAN Issue
+
+on:
+  workflow_dispatch:
+    inputs:
+      title:
+        description: "Issue title"
+        required: true
+        type: string
+      problem:
+        description: "Problem statement"
+        required: true
+        type: string
+      audience:
+        description: "Target audience"
+        required: true
+        type: string
+      documentationNeeded:
+        description: "Documentation required"
+        required: true
+        type: string
+      successCriteria:
+        description: "Success criteria"
+        required: true
+        type: string
+
+permissions:
+  issues: write
+
+jobs:
+  create-issue:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Create GitHub Issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TITLE: ${{ github.event.inputs.title }}
+          PROBLEM: ${{ github.event.inputs.problem }}
+          AUDIENCE: ${{ github.event.inputs.audience }}
+          DOCS: ${{ github.event.inputs.documentationNeeded }}
+          SUCCESS: ${{ github.event.inputs.successCriteria }}
+
+        run: |
+          cat > issue.md << EOF
+          ## Problem
+
+          $PROBLEM
+
+          ## Audience
+
+          $AUDIENCE
+
+          ## Documentation Needed
+
+          $DOCS
+
+          ## Success Criteria
+
+          $SUCCESS
+
+          ---
+
+          Generated from the Documentation Ecosystem Playground.
+          EOF
+
+          gh issue create \
+            --title "$TITLE" \
+            --body-file issue.md \
+            --label "playground" \
+            --label "status:plan"
