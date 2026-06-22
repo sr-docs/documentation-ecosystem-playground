@@ -1,4 +1,4 @@
-name: Create PLAN Issue (Documentation Ecosystem)
+name: Documentation Ecosystem - Create PLAN Issue
 
 on:
   workflow_dispatch:
@@ -6,48 +6,75 @@ on:
       title:
         description: "Issue title"
         required: true
+        type: string
+
       problem:
         description: "Problem statement"
         required: true
+        type: string
+
       audience:
         description: "Target audience"
         required: true
-      success:
+        type: string
+
+      documentationNeeded:
+        description: "Documentation required"
+        required: true
+        type: string
+
+      successCriteria:
         description: "Success criteria"
         required: true
+        type: string
+
+permissions:
+  issues: write
 
 jobs:
-  create_issue:
+  create-issue:
     runs-on: ubuntu-latest
-
-    permissions:
-      issues: write
 
     steps:
       - name: Create GitHub Issue
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
           TITLE: ${{ github.event.inputs.title }}
           PROBLEM: ${{ github.event.inputs.problem }}
           AUDIENCE: ${{ github.event.inputs.audience }}
-          SUCCESS: ${{ github.event.inputs.success }}
+          DOCS: ${{ github.event.inputs.documentationNeeded }}
+          SUCCESS: ${{ github.event.inputs.successCriteria }}
+
         run: |
           BODY=$(cat <<EOF
 ## Problem
+
 $PROBLEM
 
 ## Audience
+
 $AUDIENCE
 
+## Documentation Needed
+
+$DOCS
+
 ## Success Criteria
+
 $SUCCESS
 
 ---
-Created from Documentation Ecosystem Playground (PLAN stage)
+
+Generated from the Documentation Ecosystem Playground.
 EOF
 )
 
-          gh issue create \
-            --title "[PLAYGROUND][PLAN] $TITLE" \
+          ISSUE_URL=$(gh issue create \
+            --title "$TITLE" \
             --body "$BODY" \
-            --label "playground,plan"  
+            --label "playground" \
+            --label "status:plan")
+
+          echo "Created issue:"
+          echo "$ISSUE_URL"
