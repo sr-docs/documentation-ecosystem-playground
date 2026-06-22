@@ -7,22 +7,18 @@ on:
         description: "Issue title"
         required: true
         type: string
-
       problem:
         description: "Problem statement"
         required: true
         type: string
-
       audience:
         description: "Target audience"
         required: true
         type: string
-
       documentationNeeded:
         description: "Documentation required"
         required: true
         type: string
-
       successCriteria:
         description: "Success criteria"
         required: true
@@ -39,7 +35,6 @@ jobs:
       - name: Create GitHub Issue
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
           TITLE: ${{ github.event.inputs.title }}
           PROBLEM: ${{ github.event.inputs.problem }}
           AUDIENCE: ${{ github.event.inputs.audience }}
@@ -47,34 +42,30 @@ jobs:
           SUCCESS: ${{ github.event.inputs.successCriteria }}
 
         run: |
-          BODY=$(cat <<EOF
-## Problem
+          cat > issue.md << EOF
+          ## Problem
 
-$PROBLEM
+          $PROBLEM
 
-## Audience
+          ## Audience
 
-$AUDIENCE
+          $AUDIENCE
 
-## Documentation Needed
+          ## Documentation Needed
 
-$DOCS
+          $DOCS
 
-## Success Criteria
+          ## Success Criteria
 
-$SUCCESS
+          $SUCCESS
 
----
+          ---
 
-Generated from the Documentation Ecosystem Playground.
-EOF
-)
+          Generated from the Documentation Ecosystem Playground.
+          EOF
 
-          ISSUE_URL=$(gh issue create \
+          gh issue create \
             --title "$TITLE" \
-            --body "$BODY" \
+            --body-file issue.md \
             --label "playground" \
-            --label "status:plan")
-
-          echo "Created issue:"
-          echo "$ISSUE_URL"
+            --label "status:plan"
