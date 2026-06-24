@@ -54,17 +54,84 @@ const scenarioContent = {
   },
 }
 
-export default function ExercisePage({
-  stage,
-  onBack,
-}: ExercisePageProps) {
+// --- GitHub wiring ---
+// Replace these three values with your own before this works.
+const WORKER_URL = 'https://doc-playground-proxy.sabitarao2025.workers.dev/'
+const GITHUB_OWNER = 'sr-docs'
+const GITHUB_REPO = 'documentation-ecosystem-playground'
+
+interface PlanInputs {
+  title: string
+  problem: string
+  audience: string
+  documentationNeeded: string
+  successCriteria: string
+}
+
+async function dispatchPlanWorkflow(inputs: PlanInputs): Promise<{ url: string; number: number }> {
+  const requestId = crypto.randomUUID()
+
+  const res = await fetch(WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      workflowFile: 'create-plan-issue.yml',
+      ref: 'main',
+      inputs: { ...inputs, requestId },
+    }),
+  })
+
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}))
+    throw new Error(detail.error || `Dispatch failed: ${res.status}`)
+  }
+
+  return findCreatedIssue(GITHUB_OWNER, GITHUB_REPO, requestId)
+}
+
+async function findCreatedIssue(
+  owner: string,
+  repo: string,
+  requestId: string,
+  { timeoutMs = 30000, intervalMs = 2000 } = {}
+): Promise<{ url: string; number: number }> {
+  const deadline = Date.now() + timeoutMs
+
+  while (Date.now() < deadline) {
+    const res = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/issues?labels=playground,status:plan&state=all&sort=created&direction=desc&per_page=10`
+    )
+
+    if (res.ok) {
+      const issues = await res.json()
+      const match = issues.find((issue: { body?: string }) =>
+        issue.body?.includes(`request-id: ${requestId}`)
+      )
+      if (match) {
+        return { url: match.html_url, number: match.number }
+      }
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, intervalMs))
+  }
+
+  throw new Error('Timed out waiting for the issue to appear.')
+}
+// --- end GitHub wiring ---
+
+export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
   const [workflowStarted, setWorkflowStarted] = useState(false)
+  const [submitStatus, setSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [issueUrl, setIssueUrl] = useState<string | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const [artifact, setArtifact] = useState({
     title: 'Authentication API Documentation',
     problem:
       'Users cannot successfully integrate with the authentication API because documentation does not exist.',
     audience: 'Developers integrating with the authentication API',
+    documentationNeeded:
+      'Quick start guide, API reference, and three integration examples',
     success:
       'Developers can authenticate successfully and make their first API request without support.',
   })
@@ -74,6 +141,26 @@ export default function ExercisePage({
 
   if (!content) {
     return <div>Invalid stage</div>
+  }
+
+  async function handleCreateIssue() {
+    setSubmitStatus('loading')
+    setErrorMessage(null)
+
+    try {
+      const result = await dispatchPlanWorkflow({
+        title: artifact.title,
+        problem: artifact.problem,
+        audience: artifact.audience,
+        documentationNeeded: artifact.documentationNeeded,
+        successCriteria: artifact.success,
+      })
+      setIssueUrl(result.url)
+      setSubmitStatus('success')
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Something went wrong.')
+      setSubmitStatus('error')
+    }
   }
 
   return (
@@ -184,6 +271,21 @@ export default function ExercisePage({
               </div>
 
               <div className="artifact-field">
+                <label>Documentation Needed</label>
+
+                <textarea
+                  rows={3}
+                  value={artifact.documentationNeeded}
+                  onChange={(e) =>
+                    setArtifact({
+                      ...artifact,
+                      documentationNeeded: e.target.value,
+                    })
+                  }
+                />
+              </div>
+
+              <div className="artifact-field">
                 <label>Success Criteria</label>
 
                 <textarea
@@ -201,9 +303,26 @@ export default function ExercisePage({
               <button
                 className="submit-button"
                 type="button"
+                onClick={handleCreateIssue}
+                disabled={submitStatus === 'loading'}
               >
-                Create GitHub Issue
+                {submitStatus === 'loading' ? 'Creating issue...' : 'Create GitHub Issue'}
               </button>
+
+              {submitStatus === 'success' && issueUrl && (
+                <p style={{ color: 'green', marginTop: '12px' }}>
+                  Issue created.{' '}
+                  <a href={issueUrl} target="_blank" rel="noreferrer">
+                    View it on GitHub
+                  </a>
+                </p>
+              )}
+
+              {submitStatus === 'error' && errorMessage && (
+                <p style={{ color: 'red', marginTop: '12px' }}>
+                  {errorMessage}
+                </p>
+              )}
             </div>
           </section>
         )}
