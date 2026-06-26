@@ -23,6 +23,10 @@ on:
         description: "Success criteria"
         required: true
         type: string
+      requestId:
+        description: "Request ID for tracking"
+        required: true
+        type: string
 
 permissions:
   issues: write
@@ -40,6 +44,7 @@ jobs:
           AUDIENCE: ${{ github.event.inputs.audience }}
           DOCS: ${{ github.event.inputs.documentationNeeded }}
           SUCCESS: ${{ github.event.inputs.successCriteria }}
+          REQUEST_ID: ${{ github.event.inputs.requestId }}
 
         run: |
           cat > issue.md << EOF
@@ -62,6 +67,8 @@ jobs:
           ---
 
           Generated from the Documentation Ecosystem Playground.
+
+          <!-- request-id: $REQUEST_ID -->
           EOF
 
           gh issue create \
