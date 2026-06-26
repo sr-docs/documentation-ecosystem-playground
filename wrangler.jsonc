@@ -1,14 +1,9 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "doc-playground-proxy",
+  "main": "worker.js",
   "compatibility_date": "2026-06-22",
   "observability": {
     "enabled": true
-  },
-  "assets": {
-    "directory": "frontend"
-  },
-  "compatibility_flags": [
-    "nodejs_compat"
-  ]
+  }
 }
