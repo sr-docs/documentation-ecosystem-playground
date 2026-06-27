@@ -99,8 +99,9 @@ async function findCreatedIssue(
 
   while (Date.now() < deadline) {
     const res = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/issues?labels=playground,status:plan&state=all&sort=created&direction=desc&per_page=10`
-    )
+  `https://api.github.com/repos/${owner}/${repo}/issues?labels=playground,status:plan&state=all&sort=created&direction=desc&per_page=10&_=${Date.now()}`,
+  { cache: 'no-store' }
+)
 
     if (res.ok) {
       const issues = await res.json()
