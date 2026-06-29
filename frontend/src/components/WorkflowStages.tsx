@@ -1,7 +1,6 @@
+import { stages } from '../data/stageContent'
 import WorkflowStage from './WorkflowStage'
 import '../styles/WorkflowStages.css'
-
-const stages = ['PLAN', 'WRITE', 'REVIEW', 'PUBLISH', 'OBSERVE']
 
 interface WorkflowStagesProps {
   selectedStage: string | null
@@ -12,13 +11,13 @@ export default function WorkflowStages({ selectedStage, onSelectStage }: Workflo
   return (
     <div className="workflow-stages">
       {stages.map((stage, index) => (
-        <div key={stage}>
+        <div className="workflow-stage-wrapper" key={stage.id}>
           <WorkflowStage
-            name={stage}
-            isSelected={selectedStage === stage}
-            onClick={() => onSelectStage(stage)}
+            stage={stage}
+            isSelected={selectedStage === stage.id}
+            onClick={() => onSelectStage(stage.id)}
           />
-          {index < stages.length - 1 && <div className="workflow-arrow">↓</div>}
+          {index < stages.length - 1 && <div className="workflow-arrow">→</div>}
         </div>
       ))}
     </div>
