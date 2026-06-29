@@ -247,13 +247,11 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
               </button>
 
               {submitStatus === 'loading' && statusMessage && (
-                <p style={{ color: '#555', marginTop: '12px', fontSize: '0.9rem' }}>
-                  {statusMessage}
-                </p>
+                <p className="status-message status-loading">{statusMessage}</p>
               )}
 
               {submitStatus === 'success' && issueUrl && (
-                <p style={{ color: 'green', marginTop: '12px' }}>
+                <p className="status-message status-success">
                   Issue created.{' '}
                   <a href={issueUrl} target="_blank" rel="noreferrer">
                     View it on GitHub
@@ -262,9 +260,9 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
               )}
 
               {submitStatus === 'error' && errorMessage && (
-                <div style={{ marginTop: '12px' }}>
-                  <p style={{ color: 'red' }}>{errorMessage}</p>
-                  <p style={{ fontSize: '0.9rem' }}>
+                <div className="status-message status-error">
+                  <p>{errorMessage}</p>
+                  <p className="status-detail">
                     The issue may have been created even if this check failed.{' '}
                     
                       href={`https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/issues?q=is%3Aissue+label%3Aplayground+label%3Astatus%3Aplan`}
