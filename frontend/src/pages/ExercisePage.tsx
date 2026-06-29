@@ -263,12 +263,8 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
                 <div className="status-message status-error">
                   <p>{errorMessage}</p>
                   <p className="status-detail">
-                    The issue may have been created even if this check failed.{' '}
-                    
-                      href={`https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/issues?q=is%3Aissue+label%3Aplayground+label%3Astatus%3Aplan`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
+The issue may have been created even if this check failed.{' '}
+                    <a href={`https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/issues?q=is%3Aissue+label%3Aplayground+label%3Astatus%3Aplan`} target="_blank" rel="noreferrer">
                       Check the playground issues directly
                     </a>
                     .
