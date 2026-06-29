@@ -27,9 +27,9 @@ export default function ContextPanel({ selectedStage, onTryStage }: ContextPanel
               </ul>
             </div>
 
-            <div className="context-section">
+<div className="context-section">
               <h3>GitHub implementation</h3>
-              <p>{content.githubImplementation}</p>
+              <p className="implementation-value">{content.githubImplementation}</p>
             </div>
 
             <div className="context-section">
