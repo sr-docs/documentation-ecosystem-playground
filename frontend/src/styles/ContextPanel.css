@@ -1,39 +1,46 @@
 .context-panel {
   max-width: 600px;
   width: 100%;
-  padding: 2rem;
-  border: 1px solid #ddd;
-  background: white;
+  padding: var(--space-8);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
 }
 
 .context-empty {
-  color: #999;
+  color: var(--color-muted);
   font-size: 0.95rem;
 }
 
 .context-content h2 {
   font-size: 1.5rem;
-  margin: 0 0 1.5rem 0;
+  margin: 0 0 var(--space-6) 0;
 }
 
 .context-section {
-  margin-bottom: 1.5rem;
+  margin-bottom: var(--space-6);
 }
 
 .context-section h3 {
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   font-weight: 600;
-  margin: 0 0 0.75rem 0;
+  margin: 0 0 var(--space-3) 0;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #333;
+  color: var(--color-muted);
 }
 
 .context-section p {
   margin: 0;
   font-size: 0.95rem;
   line-height: 1.5;
-  color: #666;
+  color: var(--color-muted);
+}
+
+.implementation-value {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  color: var(--color-accent);
 }
 
 .context-section ul {
@@ -45,21 +52,23 @@
 .context-section li {
   font-size: 0.95rem;
   line-height: 1.5;
-  color: #666;
-  margin-bottom: 0.5rem;
+  color: var(--color-muted);
+  margin-bottom: var(--space-2);
 }
 
 .context-section li:before {
   content: '• ';
-  color: #999;
-  margin-right: 0.5rem;
+  color: var(--color-accent);
+  margin-right: var(--space-2);
 }
 
 .try-button {
-  margin-top: 1.5rem;
-  padding: 0.75rem 1.5rem;
-  border: 1px solid #333;
-  background: white;
+  margin-top: var(--space-6);
+  padding: var(--space-3) var(--space-6);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-accent);
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
@@ -67,5 +76,10 @@
 }
 
 .try-button:hover {
-  background: #f0f0f0;
+  background: var(--color-accent-soft);
+}
+
+.try-button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
