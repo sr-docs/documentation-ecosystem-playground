@@ -1,3 +1,35 @@
+:root {
+  /* Color */
+  --color-ink: #1a1d21;
+  --color-muted: #5b6470;
+  --color-paper: #f6f7f8;
+  --color-surface: #ffffff;
+  --color-border: #dde1e6;
+  --color-accent: #0f6e64;
+  --color-accent-dark: #0b5e55;
+  --color-accent-soft: #e3f2ef;
+  --color-success: #1f7a4d;
+  --color-error: #b3261e;
+
+  /* Type */
+  --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'SF Mono', Menlo, monospace;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+
+  /* Shape */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --shadow-card: 0 1px 3px rgba(26, 29, 33, 0.08);
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -5,11 +37,20 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  background-color: #fafafa;
-  color: #333;
+  font-family: var(--font-sans);
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3 {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+a {
+  color: var(--color-accent);
 }
 
 button {
@@ -17,4 +58,5 @@ button {
   padding: 0;
   background: none;
   cursor: pointer;
+  font-family: inherit;
 }
