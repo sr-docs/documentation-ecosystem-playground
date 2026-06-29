@@ -1,16 +1,29 @@
 .workflow-stage {
-  min-width: 150px;
-  padding: var(--space-4) var(--space-6);
+  min-width: 130px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
   border: 2px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-surface);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.workflow-stage-label {
   font-family: var(--font-mono);
   font-size: 0.9rem;
   font-weight: 600;
   letter-spacing: 0.03em;
   color: var(--color-ink);
-  cursor: pointer;
-  transition: all 0.15s ease;
+}
+
+.workflow-stage-primitive {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--color-muted);
 }
 
 .workflow-stage:hover {
@@ -20,7 +33,15 @@
 .workflow-stage.selected {
   border-color: var(--color-accent);
   background: var(--color-accent-soft);
+}
+
+.workflow-stage.selected .workflow-stage-label,
+.workflow-stage.selected .workflow-stage-primitive {
   color: var(--color-accent);
+}
+
+.workflow-stage.unavailable {
+  opacity: 0.55;
 }
 
 .workflow-stage:focus-visible {
