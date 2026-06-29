@@ -1,19 +1,23 @@
 import '../styles/WorkflowStage.css'
+import type { StageContent } from '../data/stageContent'
 
 interface WorkflowStageProps {
-  name: string
+  stage: StageContent
   isSelected: boolean
   onClick: () => void
 }
 
-export default function WorkflowStage({ name, isSelected, onClick }: WorkflowStageProps) {
+export default function WorkflowStage({ stage, isSelected, onClick }: WorkflowStageProps) {
   return (
     <button
-      className={`workflow-stage ${isSelected ? 'selected' : ''}`}
+      className={`workflow-stage ${isSelected ? 'selected' : ''} ${
+        !stage.isAvailable ? 'unavailable' : ''
+      }`}
       onClick={onClick}
       type="button"
     >
-      {name}
+      <span className="workflow-stage-label">{stage.label}</span>
+      <span className="workflow-stage-primitive">{stage.githubImplementation}</span>
     </button>
   )
 }

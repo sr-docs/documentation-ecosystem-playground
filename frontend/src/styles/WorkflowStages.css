@@ -1,12 +1,31 @@
 .workflow-stages {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.workflow-stage-wrapper {
+  display: flex;
   align-items: center;
   gap: var(--space-2);
 }
 
 .workflow-arrow {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   color: var(--color-muted);
   line-height: 1;
+}
+
+@media (max-width: 640px) {
+  .workflow-stages,
+  .workflow-stage-wrapper {
+    flex-direction: column;
+  }
+
+  .workflow-arrow {
+    transform: rotate(90deg);
+  }
 }
