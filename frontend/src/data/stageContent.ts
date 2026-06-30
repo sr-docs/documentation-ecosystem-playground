@@ -50,7 +50,14 @@ export const stages: StageContent[] = [
       title: 'Documentation Writing Scenario',
       scenario:
         'The plan is approved. Your team has decided to write a quick start guide, API reference, and three integration examples. You are assigned to write the quick start guide.',
-      task: 'Outline and draft a quick start guide that gets developers up and running quickly.',
+      task:
+        'Outline and draft a quick start guide that gets developers up and running in 10 minutes. Consider: what is the minimal setup needed? What is a realistic first example?',
+      keyDecisions: [
+        'Choose between code examples and interactive tutorials',
+        'Decide what to include vs. defer to deeper documentation',
+        'Organize content for maximum clarity',
+        'Plan for different developer skill levels',
+      ],
     },
   },
   {
@@ -63,8 +70,15 @@ export const stages: StageContent[] = [
     exercise: {
       title: 'Documentation Review Scenario',
       scenario:
-        'The quick start guide draft is submitted for review. A reviewer has suggested revisions before publication.',
-      task: 'Review the feedback, identify required changes, and determine how the documentation should evolve.',
+        'The quick start guide draft is submitted for review. A team member has provided feedback: "This assumes users know how to set environment variables. We should add that step."',
+      task:
+        'Review the feedback critically. Is it a blocker? Nice-to-have? How would you respond? Propose concrete revisions.',
+      keyDecisions: [
+        'Evaluate feedback for accuracy and completeness',
+        'Prioritize revisions by impact and effort',
+        'Balance brevity with accessibility',
+        'Decide on example code style and consistency',
+      ],
     },
   },
   {
@@ -76,8 +90,16 @@ export const stages: StageContent[] = [
     isAvailable: false,
     exercise: {
       title: 'Documentation Publishing Scenario',
-      scenario: 'The quick start guide is approved. You need to publish it to the documentation site.',
-      task: 'Plan the publication workflow and identify validation steps before release.',
+      scenario:
+        'The quick start guide is approved. You need to publish it to your documentation site. The build process checks for broken links, validates code examples, and deploys to production.',
+      task:
+        'Plan the publication workflow. How will you test the documentation before publishing? What could go wrong?',
+      keyDecisions: [
+        'Validate all links and code examples',
+        'Test documentation build and rendering',
+        'Plan rollback strategy if issues arise',
+        'Set up monitoring for broken links after deployment',
+      ],
     },
   },
   {
@@ -93,8 +115,15 @@ export const stages: StageContent[] = [
     isAvailable: false,
     exercise: {
       title: 'Documentation Observation Scenario',
-      scenario: 'The documentation has been live for two weeks. Usage patterns and support requests are available.',
-      task: 'Analyze user behavior and identify opportunities for improvement.',
+      scenario:
+        'The quick start guide has been live for two weeks. You notice: 40% of users skip the quick start and go straight to the API reference. Support tickets mention confusion about environment setup.',
+      task: 'Analyze this feedback. What improvements would you make? What metrics matter most?',
+      keyDecisions: [
+        'Prioritize improvements based on user behavior',
+        'Update content based on support ticket patterns',
+        'Consider adding interactive elements or video tutorials',
+        'Plan iteration schedule and success metrics',
+      ],
     },
   },
 ]
