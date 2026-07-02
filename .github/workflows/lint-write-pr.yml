@@ -1,0 +1,22 @@
+name: Lint WRITE Submission
+
+on:
+  pull_request:
+    paths:
+      - 'tasks/write-instances/**'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check word count
+        run: |
+          FILE=$(find tasks/write-instances -type f -name "*.md" | head -n 1)
+          WORDS=$(wc -w < "$FILE")
+          echo "Word count: $WORDS"
+          if [ "$WORDS" -lt 20 ]; then
+            echo "Draft is too short."
+            exit 1
+          fi
