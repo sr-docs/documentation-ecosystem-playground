@@ -18,6 +18,23 @@ function jsonResponse(body, status) {
   });
 }
 
+async function checkRateLimit(request, env) {
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const key = `rate:${ip}`;
+  const limit = 10;
+  const windowSeconds = 60;
+
+  const current = await env.RATE_LIMIT.get(key);
+  const count = current ? parseInt(current, 10) : 0;
+
+  if (count >= limit) {
+    return false;
+  }
+
+  await env.RATE_LIMIT.put(key, String(count + 1), { expirationTtl: windowSeconds });
+  return true;
+}
+
 async function handleDispatch(request, env) {
   let body;
   try {
@@ -79,6 +96,11 @@ export default {
   async fetch(request, env) {
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders() });
+    }
+
+    const allowed = await checkRateLimit(request, env);
+    if (!allowed) {
+      return jsonResponse({ error: 'Too many requests. Try again in a minute.' }, 429);
     }
 
     const url = new URL(request.url);
