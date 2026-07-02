@@ -380,6 +380,48 @@ The issue may have been created even if this check failed.{' '}
             </div>
           </section>
         )}
+        
+{content.isAvailable && workflowStarted && stage === 'WRITE' && (
+  <section className="artifact-section">
+    <div className="artifact-card">
+      <div className="artifact-field">
+        <label>Your draft</label>
+        <textarea
+          rows={10}
+          value={draftContent}
+          onChange={(e) => setDraftContent(e.target.value)}
+        />
+      </div>
+
+      <button
+        className="submit-button"
+        type="button"
+        onClick={handleCreateWritePR}
+        disabled={submitStatus === 'loading'}
+      >
+        {submitStatus === 'loading' ? 'Creating pull request...' : 'Submit Draft'}
+      </button>
+
+      {submitStatus === 'loading' && statusMessage && (
+        <p className="status-message status-loading">{statusMessage}</p>
+      )}
+
+      {submitStatus === 'success' && issueUrl && (
+        <p className="status-message status-success">
+          Pull request created.{' '}
+          <a href={issueUrl} target="_blank" rel="noreferrer">
+            View it on GitHub
+          </a>
+        </p>
+      )}
+
+      {submitStatus === 'error' && errorMessage && (
+        <p className="status-message status-error">{errorMessage}</p>
+      )}
+    </div>
+  </section>
+)}
+                
       </div>
     </div>
   )
