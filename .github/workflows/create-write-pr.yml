@@ -1,0 +1,86 @@
+name: Documentation Ecosystem - Create WRITE Pull Request
+
+on:
+  workflow_dispatch:
+    inputs:
+      title:
+        description: "Draft title"
+        required: true
+        type: string
+      draftContent:
+        description: "Draft content"
+        required: true
+        type: string
+      requestId:
+        description: "Request ID for tracking"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create branch, commit draft, and open PR
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.WRITE_PAT }}
+          script: |
+            const requestId = '${{ github.event.inputs.requestId }}';
+            const title = '${{ github.event.inputs.title }}';
+            const draftContent = `${{ github.event.inputs.draftContent }}`;
+            const branchName = `write/${requestId}`;
+            const filePath = `tasks/write-instances/${requestId}.md`;
+
+            const { data: mainRef } = await github.rest.git.getRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: 'heads/main',
+            });
+
+            await github.rest.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `refs/heads/${branchName}`,
+              sha: mainRef.object.sha,
+            });
+
+            await github.rest.repos.createOrUpdateFileContents({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              path: filePath,
+              message: `Add draft: ${title}`,
+              content: Buffer.from(draftContent).toString('base64'),
+              branch: branchName,
+            });
+
+            const prBody = [
+              `## Draft submission`,
+              ``,
+              `Submitted through the Documentation Ecosystem Playground.`,
+              ``,
+              `<!-- request-id: ${requestId} -->`,
+            ].join('\n');
+
+            const { data: pr } = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              head: branchName,
+              base: 'main',
+              body: prBody,
+            });
+
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              labels: ['playground', 'status:write'],
+            });
