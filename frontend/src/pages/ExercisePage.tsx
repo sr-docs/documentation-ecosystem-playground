@@ -12,6 +12,7 @@ const WORKER_URL = 'https://doc-playground-proxy.sabitarao2025.workers.dev/'
 const GITHUB_OWNER = 'sr-docs'
 const GITHUB_REPO = 'documentation-ecosystem-playground'
 
+// --- begin plan ---
 interface PlanInputs {
   title: string
   problem: string
@@ -83,6 +84,77 @@ async function findCreatedIssue(
 
   throw new Error('Timed out waiting for the issue to appear.')
 }
+// --- end plan ---
+
+// --- begin write ---
+interface WriteInputs {
+  title: string
+  draftContent: string
+}
+
+async function dispatchWriteWorkflow(
+  inputs: WriteInputs,
+  onStatusUpdate: (message: string) => void
+): Promise<{ url: string; number: number }> {
+  const requestId = crypto.randomUUID()
+
+  onStatusUpdate('Sending your draft to GitHub...')
+
+  const res = await fetch(WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      workflowFile: 'create-write-pr.yml',
+      ref: 'main',
+      inputs: { ...inputs, requestId },
+    }),
+  })
+
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}))
+    throw new Error(detail.error || `Dispatch failed: ${res.status}`)
+  }
+
+  onStatusUpdate('Creating your branch and pull request. This takes a bit longer than PLAN...')
+
+  return findCreatedPR(requestId, onStatusUpdate)
+}
+
+async function findCreatedPR(
+  requestId: string,
+  onStatusUpdate: (message: string) => void,
+  { timeoutMs = 60000, intervalMs = 3000 } = {}
+): Promise<{ url: string; number: number }> {
+  const deadline = Date.now() + timeoutMs
+  let attempt = 0
+
+  while (Date.now() < deadline) {
+    attempt += 1
+    onStatusUpdate(`Checking for your pull request... (attempt ${attempt})`)
+
+    const res = await fetch(
+      `${WORKER_URL}poll?type=pulls&labels=status:write&_=${Date.now()}`,
+      { cache: 'no-store' }
+    )
+
+    if (res.ok) {
+      const pulls = await res.json()
+      const match = pulls.find((pr: { body?: string }) =>
+        pr.body?.includes(`request-id: ${requestId}`)
+      )
+      if (match) {
+        onStatusUpdate('Pull request found.')
+        return { url: match.html_url, number: match.number }
+      }
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, intervalMs))
+  }
+
+  throw new Error('Timed out waiting for the pull request to appear.')
+}
+// --- end write ---
+
 // --- end GitHub wiring ---
 
 export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
@@ -103,6 +175,10 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
       'Developers can authenticate successfully and make their first API request without support.',
   })
 
+  const [draftContent, setDraftContent] = useState(
+  'Start your draft here. Aim for at least a few sentences.'
+  )
+  
   const content = getStageContent(stage)
 
   if (!content) {
@@ -133,6 +209,36 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
     }
   }
 
+  async function handleCreateWritePR() {
+  if (draftContent.trim().length < 20) {
+    setErrorMessage('Your draft needs at least 20 characters.')
+    setSubmitStatus('error')
+    return
+  }
+
+  if (draftContent.length > 2000) {
+    setErrorMessage('Your draft is too long. Keep it under 2,000 characters.')
+    setSubmitStatus('error')
+    return
+  }
+
+  setSubmitStatus('loading')
+  setErrorMessage(null)
+  setStatusMessage('')
+
+  try {
+    const result = await dispatchWriteWorkflow(
+      { title: 'Quick Start Guide Draft', draftContent },
+      setStatusMessage
+    )
+    setIssueUrl(result.url)
+    setSubmitStatus('success')
+  } catch (err) {
+    setErrorMessage(err instanceof Error ? err.message : 'Something went wrong.')
+    setSubmitStatus('error')
+  }
+}
+  
   return (
     <div className="exercise-page">
       <div className="exercise-header">
