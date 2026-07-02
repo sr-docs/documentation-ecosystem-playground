@@ -45,7 +45,7 @@ export const stages: StageContent[] = [
     whatHappens: ['Content is drafted.', 'Information is organized.', 'Documentation takes shape.'],
     githubImplementation: 'Branch + Commits',
     artifacts: ['Draft documentation', 'Structured content'],
-    isAvailable: false,
+    isAvailable: true,
     exercise: {
       title: 'Documentation Writing Scenario',
       scenario:
