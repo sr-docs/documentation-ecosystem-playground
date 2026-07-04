@@ -1,4 +1,4 @@
-const ALLOWED_WORKFLOWS = ['create-plan-issue.yml', 'create-write-pr.yml'];
+const ALLOWED_WORKFLOWS = ['create-plan-issue.yml', 'create-write-pr.yml', 'request-write-review.yml'];
 const ALLOWED_ORIGIN = 'https://sr-docs.github.io';
 const GITHUB_OWNER = 'sr-docs';
 const GITHUB_REPO = 'documentation-ecosystem-playground';
