@@ -27,7 +27,7 @@ async function dispatchPlanWorkflow(
 ): Promise<{ url: string; number: number }> {
   const requestId = crypto.randomUUID()
 
-  onStatusUpdate('Sending request to GitHub...')
+  onStatusUpdate('Sending your request to GitHub...')
 
   const res = await fetch(WORKER_URL, {
     method: 'POST',
@@ -44,7 +44,7 @@ async function dispatchPlanWorkflow(
     throw new Error(detail.error || `Dispatch failed: ${res.status}`)
   }
 
-  onStatusUpdate('Workflow triggered. Waiting for the GitHub Action to create the issue...')
+  onStatusUpdate('Workflow triggered. Waiting for GitHub to create the issue...')
 
   return findCreatedIssue(GITHUB_OWNER, GITHUB_REPO, requestId, onStatusUpdate)
 }
@@ -61,7 +61,7 @@ async function findCreatedIssue(
 
   while (Date.now() < deadline) {
     attempt += 1
-    onStatusUpdate(`Checking GitHub for the new issue... (attempt ${attempt})`)
+    onStatusUpdate(`Checking GitHub for your issue... (attempt ${attempt})`)
 
     const res = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/issues?labels=playground,status:plan&state=all&sort=created&direction=desc&per_page=10&_=${Date.now()}`,
@@ -115,7 +115,7 @@ async function dispatchWriteWorkflow(
     throw new Error(detail.error || `Dispatch failed: ${res.status}`)
   }
 
-  onStatusUpdate('Creating your branch and pull request. This takes a bit longer than PLAN...')
+  onStatusUpdate('Creating your branch and pull request. This takes longer than PLAN...')
 
   return findCreatedPR(requestId, onStatusUpdate)
 }
@@ -171,7 +171,6 @@ async function dispatchReviewRequest(prNumber: number): Promise<void> {
   }
 }
 // --- end write ---
-
 // --- end GitHub wiring ---
 
 export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
@@ -187,12 +186,10 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
   const [artifact, setArtifact] = useState({
     title: 'Authentication API Documentation',
     problem:
-      'Users cannot successfully integrate with the authentication API because documentation does not exist.',
+      'Users cannot integrate with the authentication API because documentation does not exist.',
     audience: 'Developers integrating with the authentication API',
-    documentationNeeded:
-      'Quick start guide, API reference, and three integration examples',
-    success:
-      'Developers can authenticate successfully and make their first API request without support.',
+    documentationNeeded: 'Quick start guide, API reference, and three integration examples',
+    success: 'Developers can authenticate and make their first API request without support.',
   })
 
   const [draftContent, setDraftContent] = useState(
@@ -237,7 +234,7 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
     }
 
     if (draftContent.length > 2000) {
-      setErrorMessage('Your draft is too long. Keep it under 2,000 characters.')
+      setErrorMessage('Keep your draft under 2,000 characters.')
       setSubmitStatus('error')
       return
     }
@@ -250,4 +247,243 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
 
     try {
       const result = await dispatchWriteWorkflow(
-        { title: 'Quick Start Guide Draft', draftContent
+        { title: 'Quick Start Guide Draft', draftContent },
+        setStatusMessage
+      )
+      setIssueUrl(result.url)
+      setPrNumber(result.number)
+      setSubmitStatus('success')
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Something went wrong.')
+      setSubmitStatus('error')
+    }
+  }
+
+  async function handleRequestReview() {
+    if (!prNumber) return
+
+    setReviewStatus('requesting')
+    setErrorMessage(null)
+
+    try {
+      await dispatchReviewRequest(prNumber)
+      setReviewStatus('requested')
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Something went wrong.')
+      setReviewStatus('error')
+    }
+  }
+
+  return (
+    <div className="exercise-page">
+      <div className="exercise-header">
+        <button className="back-button" onClick={onBack} type="button">
+          ← Back
+        </button>
+        <h1>{content.exercise.title}</h1>
+      </div>
+
+      <div className="exercise-content">
+        <section className="exercise-section">
+          <h2>The scenario</h2>
+          <p className="scenario-text">{content.exercise.scenario}</p>
+        </section>
+
+        <section className="exercise-section">
+          <h2>Your task</h2>
+          <p className="task-text">{content.exercise.task}</p>
+        </section>
+
+        {content.exercise.keyDecisions && (
+          <section className="exercise-section">
+            <h2>Key decisions to consider</h2>
+            <ul className="decisions-list">
+              {content.exercise.keyDecisions.map((decision, index) => (
+                <li key={index}>{decision}</li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {!content.isAvailable && (
+          <section className="exercise-section">
+            <h2>Coming soon</h2>
+            <p>
+              This stage's hands-on exercise isn't built yet. Go back and try PLAN or WRITE.
+              Both connect to GitHub right now.
+            </p>
+          </section>
+        )}
+
+        {content.isAvailable && !workflowStarted && (
+          <section className="exercise-section">
+            <button className="begin-button" type="button" onClick={() => setWorkflowStarted(true)}>
+              Start workflow
+            </button>
+          </section>
+        )}
+
+        {content.isAvailable && workflowStarted && stage === 'PLAN' && (
+          <section className="artifact-section">
+            <div className="artifact-header">
+              <h2>Documentation planning issue</h2>
+            </div>
+
+            <div className="artifact-card">
+              <div className="artifact-field">
+                <label>Title</label>
+                <input
+                  type="text"
+                  value={artifact.title}
+                  onChange={(e) => setArtifact({ ...artifact, title: e.target.value })}
+                />
+              </div>
+
+              <div className="artifact-field">
+                <label>Problem</label>
+                <textarea
+                  rows={4}
+                  value={artifact.problem}
+                  onChange={(e) => setArtifact({ ...artifact, problem: e.target.value })}
+                />
+              </div>
+
+              <div className="artifact-field">
+                <label>Audience</label>
+                <input
+                  type="text"
+                  value={artifact.audience}
+                  onChange={(e) => setArtifact({ ...artifact, audience: e.target.value })}
+                />
+              </div>
+
+              <div className="artifact-field">
+                <label>Documentation needed</label>
+                <textarea
+                  rows={3}
+                  value={artifact.documentationNeeded}
+                  onChange={(e) => setArtifact({ ...artifact, documentationNeeded: e.target.value })}
+                />
+              </div>
+
+              <div className="artifact-field">
+                <label>Success criteria</label>
+                <textarea
+                  rows={4}
+                  value={artifact.success}
+                  onChange={(e) => setArtifact({ ...artifact, success: e.target.value })}
+                />
+              </div>
+
+              <button
+                className="submit-button"
+                type="button"
+                onClick={handleCreateIssue}
+                disabled={submitStatus === 'loading'}
+              >
+                {submitStatus === 'loading' ? 'Creating issue...' : 'Create GitHub issue'}
+              </button>
+
+              {submitStatus === 'loading' && statusMessage && (
+                <p className="status-message status-loading">{statusMessage}</p>
+              )}
+
+              {submitStatus === 'success' && issueUrl && (
+                <p className="status-message status-success">
+                  Issue created.{' '}
+                  <a href={issueUrl} target="_blank" rel="noreferrer">
+                    View it on GitHub
+                  </a>
+                </p>
+              )}
+
+              {submitStatus === 'error' && errorMessage && (
+                <div className="status-message status-error">
+                  <p>{errorMessage}</p>
+                  <p className="status-detail">
+                    The issue might exist even if this check failed.{' '}
+                    
+                      href={`https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/issues?q=is%3Aissue+label%3Aplayground+label%3Astatus%3Aplan`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Check the playground issues directly
+                    </a>
+                    .
+                  </p>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {content.isAvailable && workflowStarted && stage === 'WRITE' && (
+          <section className="artifact-section">
+            <div className="artifact-header">
+              <h2>Documentation draft</h2>
+            </div>
+
+            <div className="artifact-card">
+              <div className="artifact-field">
+                <label>Your draft</label>
+                <textarea
+                  rows={10}
+                  value={draftContent}
+                  onChange={(e) => setDraftContent(e.target.value)}
+                />
+              </div>
+
+              <button
+                className="submit-button"
+                type="button"
+                onClick={handleCreateWritePR}
+                disabled={submitStatus === 'loading'}
+              >
+                {submitStatus === 'loading' ? 'Creating pull request...' : 'Submit draft'}
+              </button>
+
+              {submitStatus === 'loading' && statusMessage && (
+                <p className="status-message status-loading">{statusMessage}</p>
+              )}
+
+              {submitStatus === 'success' && issueUrl && (
+                <div className="status-message status-success">
+                  <p>
+                    Draft created.{' '}
+                    <a href={issueUrl} target="_blank" rel="noreferrer">
+                      View it on GitHub
+                    </a>
+                  </p>
+
+                  {reviewStatus === 'idle' && (
+                    <button className="submit-button" type="button" onClick={handleRequestReview}>
+                      Request review
+                    </button>
+                  )}
+
+                  {reviewStatus === 'requesting' && (
+                    <p className="status-message status-loading">Requesting review...</p>
+                  )}
+
+                  {reviewStatus === 'requested' && (
+                    <p className="status-message status-success">
+                      Review requested. A reviewer will take a look soon.
+                    </p>
+                  )}
+
+                  {reviewStatus === 'error' && errorMessage && (
+                    <p className="status-message status-error">{errorMessage}</p>
+                  )}
+                </div>
+              )}
+
+              {submitStatus === 'error' && errorMessage && (
+                <p className="status-message status-error">{errorMessage}</p>
+              )}
+            </div>
+          </section>
+        )}
+      </div>
+    </div>
+  )
+}
