@@ -185,8 +185,7 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
 
   const [artifact, setArtifact] = useState({
     title: 'Authentication API Documentation',
-    problem:
-      'Users cannot integrate with the authentication API because documentation does not exist.',
+    problem: 'Users cannot integrate with the authentication API because documentation does not exist.',
     audience: 'Developers integrating with the authentication API',
     documentationNeeded: 'Quick start guide, API reference, and three integration examples',
     success: 'Developers can authenticate and make their first API request without support.',
@@ -260,7 +259,9 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
   }
 
   async function handleRequestReview() {
-    if (!prNumber) return
+    if (!prNumber) {
+      return
+    }
 
     setReviewStatus('requesting')
     setErrorMessage(null)
@@ -278,7 +279,7 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
     <div className="exercise-page">
       <div className="exercise-header">
         <button className="back-button" onClick={onBack} type="button">
-          ← Back
+          Back
         </button>
         <h1>{content.exercise.title}</h1>
       </div>
