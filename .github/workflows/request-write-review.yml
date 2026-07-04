@@ -1,0 +1,51 @@
+name: Documentation Ecosystem - Request WRITE Review
+
+on:
+  workflow_dispatch:
+    inputs:
+      prNumber:
+        description: "Pull request number"
+        required: true
+        type: string
+
+permissions:
+  pull-requests: write
+
+jobs:
+  request-review:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Mark PR ready and assign reviewer
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.WRITE_PAT }}
+          script: |
+            const prNumber = parseInt('${{ github.event.inputs.prNumber }}', 10);
+
+            await github.rest.pulls.updateBranch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+            }).catch(() => {});
+
+            await github.graphql(`
+              mutation($pullRequestId: ID!) {
+                markPullRequestReadyForReview(input: { pullRequestId: $pullRequestId }) {
+                  pullRequest { id }
+                }
+              }
+            `, {
+              pullRequestId: (await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber,
+              })).data.node_id,
+            });
+
+            await github.rest.pulls.requestReviewers({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+              reviewers: ['sr-docs'],
+            });
