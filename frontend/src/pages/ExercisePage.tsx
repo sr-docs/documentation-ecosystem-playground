@@ -403,7 +403,7 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
                   <p>{errorMessage}</p>
                   <p className="status-detail">
                     The issue might exist even if this check failed.{' '}
-                    
+                    <a
                       href={`https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/issues?q=is%3Aissue+label%3Aplayground+label%3Astatus%3Aplan`}
                       target="_blank"
                       rel="noreferrer"
