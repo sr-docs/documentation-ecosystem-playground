@@ -76,6 +76,7 @@ jobs:
               head: branchName,
               base: 'main',
               body: prBody,
+              draft: true,
             });
 
             await github.rest.issues.addLabels({
