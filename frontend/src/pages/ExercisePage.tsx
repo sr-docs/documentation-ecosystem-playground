@@ -61,7 +61,7 @@ async function findCreatedIssue(
 
   while (Date.now() < deadline) {
     attempt += 1
-    onStatusUpdate(`Checking GitHub for your issue... (attempt ${attempt})`)
+    onStatusUpdate(`Checking GitHub for your issue. Attempt ${attempt}.`)
 
     const res = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/issues?labels=playground,status:plan&state=all&sort=created&direction=desc&per_page=10&_=${Date.now()}`,
@@ -85,6 +85,67 @@ async function findCreatedIssue(
   throw new Error('Timed out waiting for the issue to appear.')
 }
 // --- end plan ---
+
+// --- begin plan issue picker ---
+interface PlanIssue {
+  number: number
+  title: string
+  problem: string
+  audience: string
+  documentationNeeded: string
+}
+
+const FALLBACK_ISSUE: PlanIssue = {
+  number: 0,
+  title: 'Authentication API Documentation',
+  problem: "Users can't integrate with the authentication API because documentation doesn't exist.",
+  audience: 'Developers integrating with the authentication API',
+  documentationNeeded: 'Quick start guide, API reference, and three integration examples',
+}
+
+function parsePlanIssue(issue: { number: number; title: string; body?: string }): PlanIssue | null {
+  if (!issue.body) {
+    return null
+  }
+
+  const getSection = (label: string): string => {
+    const pattern = new RegExp(`## ${label}\\s*\\n\\n([^#]+)`, 'i')
+    const match = issue.body!.match(pattern)
+    return match ? match[1].trim() : ''
+  }
+
+  return {
+    number: issue.number,
+    title: issue.title,
+    problem: getSection('Problem'),
+    audience: getSection('Audience'),
+    documentationNeeded: getSection('Documentation Needed'),
+  }
+}
+
+async function fetchOpenPlanIssues(): Promise<PlanIssue[]> {
+  try {
+    const res = await fetch(
+      `${WORKER_URL}poll?type=issues&labels=playground,status:plan&_=${Date.now()}`,
+      { cache: 'no-store' }
+    )
+
+    if (!res.ok) {
+      return [FALLBACK_ISSUE]
+    }
+
+    const issues = await res.json()
+    const openIssues = issues.filter((issue: { state: string }) => issue.state === 'open')
+    const parsed = openIssues
+      .map(parsePlanIssue)
+      .filter((issue: PlanIssue | null): issue is PlanIssue => issue !== null)
+
+    return parsed.length > 0 ? parsed : [FALLBACK_ISSUE]
+  } catch {
+    return [FALLBACK_ISSUE]
+  }
+}
+// --- end plan issue picker ---
 
 // --- begin write ---
 interface WriteInputs {
@@ -115,7 +176,7 @@ async function dispatchWriteWorkflow(
     throw new Error(detail.error || `Dispatch failed: ${res.status}`)
   }
 
-  onStatusUpdate('Creating your branch and pull request. This takes longer than PLAN...')
+  onStatusUpdate('Creating your branch and pull request. This takes longer than PLAN.')
 
   return findCreatedPR(requestId, onStatusUpdate)
 }
@@ -130,7 +191,7 @@ async function findCreatedPR(
 
   while (Date.now() < deadline) {
     attempt += 1
-    onStatusUpdate(`Checking for your pull request... (attempt ${attempt})`)
+    onStatusUpdate(`Checking for your pull request. Attempt ${attempt}.`)
 
     const res = await fetch(
       `${WORKER_URL}poll?type=pulls&labels=status:write&_=${Date.now()}`,
@@ -185,6 +246,10 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
   const [prNumber, setPrNumber] = useState<number | null>(null)
   const [reviewStatus, setReviewStatus] = useState<'idle' | 'requesting' | 'requested' | 'error'>('idle')
 
+  const [planIssues, setPlanIssues] = useState<PlanIssue[]>([])
+  const [selectedPlanIssue, setSelectedPlanIssue] = useState<PlanIssue | null>(null)
+  const [loadingIssues, setLoadingIssues] = useState(false)
+
   const [artifact, setArtifact] = useState({
     title: 'Authentication API Documentation',
     problem: 'Users cannot integrate with the authentication API because documentation does not exist.',
@@ -201,6 +266,13 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
 
   if (!content) {
     return <div>Invalid stage</div>
+  }
+
+  async function loadPlanIssues() {
+    setLoadingIssues(true)
+    const issues = await fetchOpenPlanIssues()
+    setPlanIssues(issues)
+    setLoadingIssues(false)
   }
 
   async function handleCreateIssue() {
@@ -249,7 +321,7 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
 
     try {
       const result = await dispatchWriteWorkflow(
-        { title: 'Quick Start Guide Draft', draftContent },
+        { title: selectedPlanIssue?.title ?? 'Documentation Draft', draftContent },
         setStatusMessage
       )
       setIssueUrl(result.url)
@@ -322,7 +394,16 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
 
         {content.isAvailable && !workflowStarted && (
           <section className="exercise-section">
-            <button className="begin-button" type="button" onClick={() => setWorkflowStarted(true)}>
+            <button
+              className="begin-button"
+              type="button"
+              onClick={() => {
+                setWorkflowStarted(true)
+                if (stage === 'WRITE') {
+                  loadPlanIssues()
+                }
+              }}
+            >
               Start workflow
             </button>
           </section>
@@ -407,7 +488,7 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
                   <p>{errorMessage}</p>
                   <p className="status-detail">
                     The issue might exist even if this check failed.{' '}
-                   <a 
+                    <a
                       href={`https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/issues?q=is%3Aissue+label%3Aplayground+label%3Astatus%3Aplan`}
                       target="_blank"
                       rel="noreferrer"
@@ -422,13 +503,54 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
           </section>
         )}
 
-        {content.isAvailable && workflowStarted && stage === 'WRITE' && (
+        {content.isAvailable && workflowStarted && stage === 'WRITE' && !selectedPlanIssue && (
+          <section className="artifact-section">
+            <div className="artifact-header">
+              <h2>Choose a plan to write for</h2>
+            </div>
+
+            {loadingIssues && <p className="status-message status-loading">Loading plans...</p>}
+
+            {!loadingIssues && (
+              <div className="artifact-card">
+                {planIssues.map((issue) => (
+                  <button
+                    key={issue.number}
+                    type="button"
+                    className="plan-issue-option"
+                    onClick={() => setSelectedPlanIssue(issue)}
+                  >
+                    <strong>{issue.title}</strong>
+                    <p>{issue.problem}</p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {content.isAvailable && workflowStarted && stage === 'WRITE' && selectedPlanIssue && (
           <section className="artifact-section">
             <div className="artifact-header">
               <h2>Documentation draft</h2>
             </div>
 
             <div className="artifact-card">
+              <div className="artifact-field">
+                <label>Writing for</label>
+                <p className="task-text">{selectedPlanIssue.title}</p>
+              </div>
+
+              <div className="artifact-field">
+                <label>Problem</label>
+                <p className="task-text">{selectedPlanIssue.problem}</p>
+              </div>
+
+              <div className="artifact-field">
+                <label>Audience</label>
+                <p className="task-text">{selectedPlanIssue.audience}</p>
+              </div>
+
               <div className="artifact-field">
                 <label>Your draft</label>
                 <textarea
