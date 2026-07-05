@@ -156,3 +156,19 @@
   color: var(--color-muted);
   margin-top: var(--space-1);
 }
+
+.plan-issue-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: var(--space-4);
+  margin-bottom: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  cursor: pointer;
+}
+
+.plan-issue-option:hover {
+  border-color: var(--color-accent);
+}
