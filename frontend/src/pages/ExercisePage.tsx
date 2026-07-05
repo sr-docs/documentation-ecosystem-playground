@@ -552,6 +552,11 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
               </div>
 
               <div className="artifact-field">
+  <label>Documentation needed</label>
+  <p className="task-text">{selectedPlanIssue.documentationNeeded}</p>
+</div>
+
+              <div className="artifact-field">
                 <label>Your draft</label>
                 <textarea
                   rows={10}
