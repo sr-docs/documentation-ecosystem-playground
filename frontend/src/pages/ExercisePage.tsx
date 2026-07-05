@@ -27,7 +27,7 @@ async function dispatchPlanWorkflow(
 ): Promise<{ url: string; number: number }> {
   const requestId = crypto.randomUUID()
 
-  onStatusUpdate('Sending your request to GitHub...')
+  onStatusUpdate('Sending your request to GitHub.')
 
   const res = await fetch(WORKER_URL, {
     method: 'POST',
@@ -44,7 +44,7 @@ async function dispatchPlanWorkflow(
     throw new Error(detail.error || `Dispatch failed: ${res.status}`)
   }
 
-  onStatusUpdate('Workflow triggered. Waiting for GitHub to create the issue...')
+  onStatusUpdate('Workflow triggered. Waiting for GitHub to create the issue.')
 
   return findCreatedIssue(GITHUB_OWNER, GITHUB_REPO, requestId, onStatusUpdate)
 }
@@ -159,7 +159,7 @@ async function dispatchWriteWorkflow(
 ): Promise<{ url: string; number: number; draftUrl: string }> {
   const requestId = crypto.randomUUID()
 
-  onStatusUpdate('Sending your draft to GitHub...')
+  onStatusUpdate('Sending your draft to GitHub.')
 
   const res = await fetch(WORKER_URL, {
     method: 'POST',
@@ -224,6 +224,27 @@ async function dispatchReviewRequest(prNumber: number): Promise<void> {
       workflowFile: 'request-write-review.yml',
       ref: 'main',
       inputs: { prNumber: String(prNumber) },
+    }),
+  })
+
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}))
+    throw new Error(detail.error || `Dispatch failed: ${res.status}`)
+  }
+}
+
+async function dispatchPlanComment(issueNumber: number, prUrl: string): Promise<void> {
+  if (issueNumber === 0) {
+    return
+  }
+
+  const res = await fetch(WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      workflowFile: 'comment-on-plan-issue.yml',
+      ref: 'main',
+      inputs: { issueNumber: String(issueNumber), prUrl },
     }),
   })
 
@@ -328,6 +349,12 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
       setDraftUrl(result.draftUrl)
       setPrNumber(result.number)
       setSubmitStatus('success')
+
+      if (selectedPlanIssue) {
+        dispatchPlanComment(selectedPlanIssue.number, result.url).catch(() => {
+          // A failed comment doesn't block the visitor. The draft and PR already exist.
+        })
+      }
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Something went wrong.')
       setSubmitStatus('error')
@@ -467,7 +494,7 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
                 onClick={handleCreateIssue}
                 disabled={submitStatus === 'loading'}
               >
-                {submitStatus === 'loading' ? 'Creating issue...' : 'Create GitHub issue'}
+                {submitStatus === 'loading' ? 'Creating issue.' : 'Create GitHub issue'}
               </button>
 
               {submitStatus === 'loading' && statusMessage && (
@@ -509,7 +536,7 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
               <h2>Choose a plan to write for</h2>
             </div>
 
-            {loadingIssues && <p className="status-message status-loading">Loading plans...</p>}
+            {loadingIssues && <p className="status-message status-loading">Loading plans.</p>}
 
             {!loadingIssues && (
               <div className="artifact-card">
@@ -552,9 +579,9 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
               </div>
 
               <div className="artifact-field">
-  <label>Documentation needed</label>
-  <p className="task-text">{selectedPlanIssue.documentationNeeded}</p>
-</div>
+                <label>Documentation needed</label>
+                <p className="task-text">{selectedPlanIssue.documentationNeeded}</p>
+              </div>
 
               <div className="artifact-field">
                 <label>Your draft</label>
@@ -571,7 +598,7 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
                 onClick={handleCreateWritePR}
                 disabled={submitStatus === 'loading'}
               >
-                {submitStatus === 'loading' ? 'Creating pull request...' : 'Submit draft'}
+                {submitStatus === 'loading' ? 'Creating pull request.' : 'Submit draft'}
               </button>
 
               {submitStatus === 'loading' && statusMessage && (
@@ -594,7 +621,7 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
                   )}
 
                   {reviewStatus === 'requesting' && (
-                    <p className="status-message status-loading">Requesting review...</p>
+                    <p className="status-message status-loading">Requesting review.</p>
                   )}
 
                   {reviewStatus === 'requested' && (
