@@ -256,6 +256,15 @@ async function dispatchPlanComment(issueNumber: number, prUrl: string): Promise<
 // --- end write ---
 // --- end GitHub wiring ---
 
+const STYLE_GUIDE_RULES = [
+  'Use plain language. Skip jargon.',
+  'Write to the reader as "you."',
+  'Use active voice.',
+  'Keep sentences short.',
+  'Cut filler words like "very," "simply," or "just."',
+  'Use a verb, not a noun phrase: say "connect," not "establish connectivity."',
+]
+
 export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
   const [workflowStarted, setWorkflowStarted] = useState(false)
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
@@ -270,6 +279,8 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
   const [planIssues, setPlanIssues] = useState<PlanIssue[]>([])
   const [selectedPlanIssue, setSelectedPlanIssue] = useState<PlanIssue | null>(null)
   const [loadingIssues, setLoadingIssues] = useState(false)
+
+  const [showStyleGuide, setShowStyleGuide] = useState(false)
 
   const [artifact, setArtifact] = useState({
     title: 'Authentication API Documentation',
@@ -582,6 +593,22 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
                 <label>Documentation needed</label>
                 <p className="task-text">{selectedPlanIssue.documentationNeeded}</p>
               </div>
+
+              <button
+                type="button"
+                className="style-guide-toggle"
+                onClick={() => setShowStyleGuide(!showStyleGuide)}
+              >
+                {showStyleGuide ? 'Hide style guide' : 'Show style guide'}
+              </button>
+
+              {showStyleGuide && (
+                <ul className="style-guide-list">
+                  {STYLE_GUIDE_RULES.map((rule, index) => (
+                    <li key={index}>{rule}</li>
+                  ))}
+                </ul>
+              )}
 
               <div className="artifact-field">
                 <label>Your draft</label>
