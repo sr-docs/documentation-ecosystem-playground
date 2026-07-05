@@ -1,0 +1,31 @@
+name: Documentation Ecosystem - Comment on PLAN Issue
+
+on:
+  workflow_dispatch:
+    inputs:
+      issueNumber:
+        description: "PLAN issue number"
+        required: true
+        type: string
+      prUrl:
+        description: "URL of the WRITE pull request"
+        required: true
+        type: string
+
+permissions:
+  issues: write
+
+jobs:
+  comment:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Post comment on the PLAN issue
+        env:
+          GH_TOKEN: ${{ secrets.WRITE_PAT }}
+          ISSUE_NUMBER: ${{ github.event.inputs.issueNumber }}
+          PR_URL: ${{ github.event.inputs.prUrl }}
+        run: |
+          gh issue comment "$ISSUE_NUMBER" \
+            --repo "${{ github.repository }}" \
+            --body "A draft has started for this plan. Track it here: $PR_URL"
