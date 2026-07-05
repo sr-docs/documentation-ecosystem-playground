@@ -95,7 +95,7 @@ interface WriteInputs {
 async function dispatchWriteWorkflow(
   inputs: WriteInputs,
   onStatusUpdate: (message: string) => void
-): Promise<{ url: string; number: number }> {
+): Promise<{ url: string; number: number; draftUrl: string }> {
   const requestId = crypto.randomUUID()
 
   onStatusUpdate('Sending your draft to GitHub...')
@@ -124,7 +124,7 @@ async function findCreatedPR(
   requestId: string,
   onStatusUpdate: (message: string) => void,
   { timeoutMs = 60000, intervalMs = 3000 } = {}
-): Promise<{ url: string; number: number }> {
+): Promise<{ url: string; number: number; draftUrl: string }> {
   const deadline = Date.now() + timeoutMs
   let attempt = 0
 
@@ -144,7 +144,8 @@ async function findCreatedPR(
       )
       if (match) {
         onStatusUpdate('Pull request found.')
-        return { url: match.html_url, number: match.number }
+        const draftUrl = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/blob/${match.head.ref}/tasks/write-instances/${requestId}.md`
+        return { url: match.html_url, number: match.number, draftUrl }
       }
     }
 
@@ -177,6 +178,7 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
   const [workflowStarted, setWorkflowStarted] = useState(false)
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [issueUrl, setIssueUrl] = useState<string | null>(null)
+  const [draftUrl, setDraftUrl] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [statusMessage, setStatusMessage] = useState<string>('')
 
@@ -243,6 +245,7 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
     setStatusMessage('')
     setReviewStatus('idle')
     setPrNumber(null)
+    setDraftUrl(null)
 
     try {
       const result = await dispatchWriteWorkflow(
@@ -250,6 +253,7 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
         setStatusMessage
       )
       setIssueUrl(result.url)
+      setDraftUrl(result.draftUrl)
       setPrNumber(result.number)
       setSubmitStatus('success')
     } catch (err) {
@@ -403,7 +407,7 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
                   <p>{errorMessage}</p>
                   <p className="status-detail">
                     The issue might exist even if this check failed.{' '}
-                    <a
+                   <a 
                       href={`https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/issues?q=is%3Aissue+label%3Aplayground+label%3Astatus%3Aplan`}
                       target="_blank"
                       rel="noreferrer"
@@ -451,7 +455,7 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
                 <div className="status-message status-success">
                   <p>
                     Draft created.{' '}
-                    <a href={issueUrl} target="_blank" rel="noreferrer">
+                    <a href={draftUrl ?? issueUrl} target="_blank" rel="noreferrer">
                       View it on GitHub
                     </a>
                   </p>
