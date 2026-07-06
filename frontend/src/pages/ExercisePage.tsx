@@ -93,6 +93,7 @@ interface PlanIssue {
   problem: string
   audience: string
   documentationNeeded: string
+  successCriteria: string
 }
 
 const FALLBACK_ISSUE: PlanIssue = {
@@ -101,6 +102,7 @@ const FALLBACK_ISSUE: PlanIssue = {
   problem: "Users can't integrate with the authentication API because documentation doesn't exist.",
   audience: 'Developers integrating with the authentication API',
   documentationNeeded: 'Quick start guide, API reference, and three integration examples',
+  successCriteria: 'Developers can authenticate and make their first API request without support.',
 }
 
 function parsePlanIssue(issue: { number: number; title: string; body?: string }): PlanIssue | null {
@@ -120,6 +122,7 @@ function parsePlanIssue(issue: { number: number; title: string; body?: string })
     problem: getSection('Problem'),
     audience: getSection('Audience'),
     documentationNeeded: getSection('Documentation Needed'),
+    successCriteria: getSection('Success Criteria'),
   }
 }
 
@@ -254,6 +257,124 @@ async function dispatchPlanComment(issueNumber: number, prUrl: string): Promise<
   }
 }
 // --- end write ---
+
+// --- begin review ---
+const SEED_DRAFT_CONTENT = `# NimbusAuth Quick Start Guide
+
+Get up and running with the NimbusAuth API in a few minutes.
+
+## What you need
+
+- A NimbusAuth API key
+- An email and password for your NimbusAuth account
+
+## Set your API key
+
+Store your API key as an environment variable named NIMBUS_API_KEY. Don't paste it directly into your code.
+
+## Step 1: Log in
+
+Send a GET request to /auth/login with your API key, email, and password in the request body.
+
+POST https://api.nimbusauth.dev/v1/auth/login
+Content-Type: application/json
+
+{
+  "api_key": "nimbus_live_4f8a2c9e",
+  "email": "user@example.com",
+  "password": "your-password"
+}
+
+You'll get back an access token and a refresh token:
+
+{
+  "access_token": "ey.abc123",
+  "refresh_token": "rt.def456",
+  "expires_in": 3600
+}
+
+## Step 2: Check your session
+
+Use the access token to confirm you're logged in. Send a GET request to /auth/me:
+
+GET https://api.nimbusauth.dev/v1/auth/me
+Authorization: Bearer ey.abc123
+
+You'll get back your account details.
+
+## Step 3: Refresh your token
+
+Access tokens expire after an hour. When yours expires, send your refresh token to /auth/refresh to get a new one.
+
+## Step 4: Log out
+
+Send a POST request to /auth/logout to end your session.`
+
+const RELATED_REFERENCE_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/blob/main/tasks/write-instances/nimbusauth-api-reference.md`
+
+async function dispatchReviewFeedback(
+  comment: string,
+  decision: string,
+  onStatusUpdate: (message: string) => void
+): Promise<{ url: string; number: number }> {
+  const requestId = crypto.randomUUID()
+
+  onStatusUpdate('Sending your feedback to GitHub.')
+
+  const res = await fetch(WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      workflowFile: 'create-review-feedback.yml',
+      ref: 'main',
+      inputs: { comment, decision, requestId },
+    }),
+  })
+
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}))
+    throw new Error(detail.error || `Dispatch failed: ${res.status}`)
+  }
+
+  onStatusUpdate('Workflow triggered. Waiting for GitHub to log your feedback.')
+
+  return findCreatedReviewIssue(requestId, onStatusUpdate)
+}
+
+async function findCreatedReviewIssue(
+  requestId: string,
+  onStatusUpdate: (message: string) => void,
+  { timeoutMs = 30000, intervalMs = 2000 } = {}
+): Promise<{ url: string; number: number }> {
+  const deadline = Date.now() + timeoutMs
+  let attempt = 0
+
+  while (Date.now() < deadline) {
+    attempt += 1
+    onStatusUpdate(`Checking GitHub for your feedback. Attempt ${attempt}.`)
+
+    const res = await fetch(
+      `${WORKER_URL}poll?type=issues&labels=playground,status:review&_=${Date.now()}`,
+      { cache: 'no-store' }
+    )
+
+    if (res.ok) {
+      const issues = await res.json()
+      const match = issues.find((issue: { body?: string }) =>
+        issue.body?.includes(`request-id: ${requestId}`)
+      )
+      if (match) {
+        onStatusUpdate('Feedback logged.')
+        return { url: match.html_url, number: match.number }
+      }
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, intervalMs))
+  }
+
+  throw new Error('Timed out waiting for your feedback to appear.')
+}
+// --- end review ---
 // --- end GitHub wiring ---
 
 const STYLE_GUIDE_RULES = [
@@ -281,6 +402,11 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
   const [loadingIssues, setLoadingIssues] = useState(false)
 
   const [showStyleGuide, setShowStyleGuide] = useState(false)
+
+  const [reviewComment, setReviewComment] = useState('')
+  const [reviewDecision, setReviewDecision] = useState<'approve' | 'request-changes' | null>(null)
+  const [reviewSubmitStatus, setReviewSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [reviewIssueUrl, setReviewIssueUrl] = useState<string | null>(null)
 
   const [artifact, setArtifact] = useState({
     title: 'Authentication API Documentation',
@@ -389,6 +515,34 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
     }
   }
 
+  async function handleSubmitReview() {
+    if (reviewComment.trim().length < 10) {
+      setErrorMessage('Add a bit more detail to your comment.')
+      setReviewSubmitStatus('error')
+      return
+    }
+
+    if (!reviewDecision) {
+      setErrorMessage('Choose approve or request changes before submitting.')
+      setReviewSubmitStatus('error')
+      return
+    }
+
+    setReviewSubmitStatus('loading')
+    setErrorMessage(null)
+    setStatusMessage('')
+
+    try {
+      const decisionLabel = reviewDecision === 'approve' ? 'Approved' : 'Changes requested'
+      const result = await dispatchReviewFeedback(reviewComment, decisionLabel, setStatusMessage)
+      setReviewIssueUrl(result.url)
+      setReviewSubmitStatus('success')
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Something went wrong.')
+      setReviewSubmitStatus('error')
+    }
+  }
+
   return (
     <div className="exercise-page">
       <div className="exercise-header">
@@ -424,8 +578,8 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
           <section className="exercise-section">
             <h2>Coming soon</h2>
             <p>
-              This stage's hands-on exercise isn't built yet. Go back and try PLAN or WRITE.
-              Both connect to GitHub right now.
+              This stage's hands-on exercise isn't built yet. Go back and try PLAN, WRITE, or
+              REVIEW. All three connect to GitHub right now.
             </p>
           </section>
         )}
@@ -526,8 +680,7 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
                   <p>{errorMessage}</p>
                   <p className="status-detail">
                     The issue might exist even if this check failed.{' '}
-                    <a
-                      href={`https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/issues?q=is%3Aissue+label%3Aplayground+label%3Astatus%3Aplan`}
+                    <a href={`https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/issues?q=is%3Aissue+label%3Aplayground+label%3Astatus%3Aplan`}
                       target="_blank"
                       rel="noreferrer"
                     >
@@ -664,6 +817,86 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
               )}
 
               {submitStatus === 'error' && errorMessage && (
+                <p className="status-message status-error">{errorMessage}</p>
+              )}
+            </div>
+          </section>
+        )}
+
+        {content.isAvailable && workflowStarted && stage === 'REVIEW' && (
+          <section className="artifact-section">
+            <div className="artifact-header">
+              <h2>Draft under review</h2>
+            </div>
+
+            <div className="artifact-card">
+              <div className="artifact-field">
+                <label>Success criteria</label>
+                <p className="task-text">{FALLBACK_ISSUE.successCriteria}</p>
+              </div>
+
+              <div className="artifact-field">
+                <label>Related reference</label>
+                <a href={RELATED_REFERENCE_URL} target="_blank" rel="noreferrer">
+                  NimbusAuth API Reference
+                </a>
+              </div>
+
+              <div className="artifact-field">
+                <label>Draft content</label>
+                <pre className="draft-preview">{SEED_DRAFT_CONTENT}</pre>
+              </div>
+
+              <div className="artifact-field">
+                <label>Your comment</label>
+                <textarea
+                  rows={4}
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
+                  placeholder="What did you notice in this draft?"
+                />
+              </div>
+
+              <div className="review-decision-row">
+                <button
+                  type="button"
+                  className={`decision-button ${reviewDecision === 'approve' ? 'selected' : ''}`}
+                  onClick={() => setReviewDecision('approve')}
+                >
+                  Approve
+                </button>
+                <button
+                  type="button"
+                  className={`decision-button ${reviewDecision === 'request-changes' ? 'selected' : ''}`}
+                  onClick={() => setReviewDecision('request-changes')}
+                >
+                  Request changes
+                </button>
+              </div>
+
+              <button
+                className="submit-button"
+                type="button"
+                onClick={handleSubmitReview}
+                disabled={reviewSubmitStatus === 'loading'}
+              >
+                {reviewSubmitStatus === 'loading' ? 'Submitting feedback.' : 'Submit feedback'}
+              </button>
+
+              {reviewSubmitStatus === 'loading' && statusMessage && (
+                <p className="status-message status-loading">{statusMessage}</p>
+              )}
+
+              {reviewSubmitStatus === 'success' && reviewIssueUrl && (
+                <p className="status-message status-success">
+                  Feedback logged.{' '}
+                  <a href={reviewIssueUrl} target="_blank" rel="noreferrer">
+                    View it on GitHub
+                  </a>
+                </p>
+              )}
+
+              {reviewSubmitStatus === 'error' && errorMessage && (
                 <p className="status-message status-error">{errorMessage}</p>
               )}
             </div>
