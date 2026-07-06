@@ -59,7 +59,7 @@ export const stages: StageContent[] = [
     whatHappens: ['Content is evaluated.', 'Feedback is provided.', 'Quality is improved.'],
     githubImplementation: 'Pull Request',
     artifacts: ['Review comments', 'Approval decisions'],
-    isAvailable: false,
+    isAvailable: true,
     exercise: {
       title: 'Documentation Review Scenario',
       scenario:
