@@ -3,6 +3,7 @@ const ALLOWED_WORKFLOWS = [
   'create-write-pr.yml',
   'request-write-review.yml',
   'comment-on-plan-issue.yml',
+  'create-review-feedback.yml',
 ];
 const ALLOWED_ORIGIN = 'https://sr-docs.github.io';
 const GITHUB_OWNER = 'sr-docs';
@@ -24,6 +25,10 @@ function jsonResponse(body, status) {
 }
 
 async function checkRateLimit(request, env) {
+  if (!env.RATE_LIMIT) {
+    return true;
+  }
+
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
   const key = `rate:${ip}`;
   const limit = 10;
@@ -99,25 +104,29 @@ async function handlePoll(request, env) {
 
 export default {
   async fetch(request, env) {
-    if (request.method === 'OPTIONS') {
-      return new Response(null, { status: 204, headers: corsHeaders() });
+    try {
+      if (request.method === 'OPTIONS') {
+        return new Response(null, { status: 204, headers: corsHeaders() });
+      }
+
+      const allowed = await checkRateLimit(request, env);
+      if (!allowed) {
+        return jsonResponse({ error: 'Too many requests. Try again in a minute.' }, 429);
+      }
+
+      const url = new URL(request.url);
+
+      if (request.method === 'GET' && url.pathname === '/poll') {
+        return handlePoll(request, env);
+      }
+
+      if (request.method === 'POST') {
+        return handleDispatch(request, env);
+      }
+
+      return jsonResponse({ error: 'Method not allowed' }, 405);
+    } catch (err) {
+      return jsonResponse({ error: `Worker error: ${err.message}` }, 500);
     }
-
-    const allowed = await checkRateLimit(request, env);
-    if (!allowed) {
-      return jsonResponse({ error: 'Too many requests. Try again in a minute.' }, 429);
-    }
-
-    const url = new URL(request.url);
-
-    if (request.method === 'GET' && url.pathname === '/poll') {
-      return handlePoll(request, env);
-    }
-
-    if (request.method === 'POST') {
-      return handleDispatch(request, env);
-    }
-
-    return jsonResponse({ error: 'Method not allowed' }, 405);
   },
 };
