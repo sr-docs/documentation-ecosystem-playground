@@ -7,6 +7,10 @@ Get up and running with the NimbusAuth API in a few minutes.
 - A NimbusAuth API key
 - An email and password for your NimbusAuth account
 
+## Set your API key
+
+Store your API key as an environment variable named `NIMBUS_API_KEY`. Don't paste it directly into your code.
+
 ## Step 1: Log in
 
 Send a GET request to `/auth/login` with your API key, email, and password in the request body.
