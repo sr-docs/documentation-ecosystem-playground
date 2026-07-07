@@ -312,6 +312,9 @@ Send a POST request to /auth/logout to end your session.`
 
 const RELATED_REFERENCE_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/blob/main/tasks/write-instances/nimbusauth-api-reference.md`
 
+const SEED_PR_URL = 'https://github.com/sr-docs/documentation-ecosystem-playground/pull/28'
+const SEED_PLAN_ISSUE_URL = 'https://github.com/sr-docs/documentation-ecosystem-playground/issues/26'
+
 async function dispatchReviewFeedback(
   comment: string,
   decision: string,
@@ -327,7 +330,13 @@ async function dispatchReviewFeedback(
     body: JSON.stringify({
       workflowFile: 'create-review-feedback.yml',
       ref: 'main',
-      inputs: { comment, decision, requestId },
+      inputs: {
+        comment,
+        decision,
+        prUrl: SEED_PR_URL,
+        planIssueUrl: SEED_PLAN_ISSUE_URL,
+        requestId,
+      },
     }),
   })
 
