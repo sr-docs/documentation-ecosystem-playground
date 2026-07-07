@@ -11,6 +11,14 @@ on:
         description: "Approve or Request Changes"
         required: true
         type: string
+      prUrl:
+        description: "URL of the pull request under review"
+        required: true
+        type: string
+      planIssueUrl:
+        description: "URL of the related PLAN issue"
+        required: true
+        type: string
       requestId:
         description: "Request ID for tracking"
         required: true
@@ -32,6 +40,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           COMMENT: ${{ github.event.inputs.comment }}
           DECISION: ${{ github.event.inputs.decision }}
+          PR_URL: ${{ github.event.inputs.prUrl }}
+          PLAN_ISSUE_URL: ${{ github.event.inputs.planIssueUrl }}
           REQUEST_ID: ${{ github.event.inputs.requestId }}
         run: |
           cat > issue.md << EOF
@@ -42,6 +52,14 @@ jobs:
           ## Reviewer Comment
 
           $COMMENT
+
+          ## Reviewed Draft
+
+          $PR_URL
+
+          ## Related Plan
+
+          $PLAN_ISSUE_URL
 
           ---
 
