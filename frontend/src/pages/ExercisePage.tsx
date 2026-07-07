@@ -311,7 +311,6 @@ Access tokens expire after an hour. When yours expires, send your refresh token 
 Send a POST request to /auth/logout to end your session.`
 
 const RELATED_REFERENCE_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/blob/main/tasks/write-instances/nimbusauth-api-reference.md`
-
 const SEED_PR_URL = 'https://github.com/sr-docs/documentation-ecosystem-playground/pull/28'
 const SEED_PLAN_ISSUE_URL = 'https://github.com/sr-docs/documentation-ecosystem-playground/issues/26'
 
@@ -413,7 +412,6 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
   const [showStyleGuide, setShowStyleGuide] = useState(false)
 
   const [reviewComment, setReviewComment] = useState('')
-  const [reviewDecision, setReviewDecision] = useState<'approve' | 'request-changes' | null>(null)
   const [reviewSubmitStatus, setReviewSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [reviewIssueUrl, setReviewIssueUrl] = useState<string | null>(null)
 
@@ -524,15 +522,9 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
     }
   }
 
-  async function handleSubmitReview() {
+  async function handleSubmitReview(decision: 'approve' | 'request-changes') {
     if (reviewComment.trim().length < 10) {
       setErrorMessage('Add a bit more detail to your comment.')
-      setReviewSubmitStatus('error')
-      return
-    }
-
-    if (!reviewDecision) {
-      setErrorMessage('Choose approve or request changes before submitting.')
       setReviewSubmitStatus('error')
       return
     }
@@ -542,7 +534,7 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
     setStatusMessage('')
 
     try {
-      const decisionLabel = reviewDecision === 'approve' ? 'Approved' : 'Changes requested'
+      const decisionLabel = decision === 'approve' ? 'Approved' : 'Changes requested'
       const result = await dispatchReviewFeedback(reviewComment, decisionLabel, setStatusMessage)
       setReviewIssueUrl(result.url)
       setReviewSubmitStatus('success')
@@ -869,32 +861,21 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
               <div className="review-decision-row">
                 <button
                   type="button"
-                  className={`decision-button ${reviewDecision === 'approve' ? 'selected' : ''}`}
-                  onClick={() => setReviewDecision('approve')}
+                  className="decision-button approve"
+                  onClick={() => handleSubmitReview('approve')}
+                  disabled={reviewSubmitStatus === 'loading'}
                 >
-                  Approve
+                  {reviewSubmitStatus === 'loading' ? 'Submitting.' : 'Approve'}
                 </button>
                 <button
                   type="button"
-                  className={`decision-button ${reviewDecision === 'request-changes' ? 'selected' : ''}`}
-                  onClick={() => setReviewDecision('request-changes')}
+                  className="decision-button"
+                  onClick={() => handleSubmitReview('request-changes')}
+                  disabled={reviewSubmitStatus === 'loading'}
                 >
-                  Request changes
+                  {reviewSubmitStatus === 'loading' ? 'Submitting.' : 'Request changes'}
                 </button>
               </div>
-
-              <button
-                className="submit-button"
-                type="button"
-                onClick={handleSubmitReview}
-                disabled={reviewSubmitStatus === 'loading'}
-              >
-                {reviewSubmitStatus === 'loading' ? 'Submitting feedback.' : 'Submit feedback'}
-              </button>
-
-              {reviewSubmitStatus === 'loading' && statusMessage && (
-                <p className="status-message status-loading">{statusMessage}</p>
-              )}
 
               {reviewSubmitStatus === 'success' && reviewIssueUrl && (
                 <p className="status-message status-success">
