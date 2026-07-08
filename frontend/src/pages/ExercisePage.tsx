@@ -312,30 +312,22 @@ Send a POST request to /auth/logout to end your session.`
 
 const RELATED_REFERENCE_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/blob/main/tasks/write-instances/nimbusauth-api-reference.md`
 const SEED_PR_URL = 'https://github.com/sr-docs/documentation-ecosystem-playground/pull/28'
-const SEED_PLAN_ISSUE_URL = 'https://github.com/sr-docs/documentation-ecosystem-playground/issues/26'
+const SEED_PR_NUMBER = '28'
 
-async function dispatchReviewFeedback(
+async function dispatchPRReview(
   comment: string,
   decision: string,
   onStatusUpdate: (message: string) => void
-): Promise<{ url: string; number: number }> {
-  const requestId = crypto.randomUUID()
-
-  onStatusUpdate('Sending your feedback to GitHub.')
+): Promise<void> {
+  onStatusUpdate('Posting your review to the pull request.')
 
   const res = await fetch(WORKER_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      workflowFile: 'create-review-feedback.yml',
+      workflowFile: 'submit-pr-review.yml',
       ref: 'main',
-      inputs: {
-        comment,
-        decision,
-        prUrl: SEED_PR_URL,
-        planIssueUrl: SEED_PLAN_ISSUE_URL,
-        requestId,
-      },
+      inputs: { prNumber: SEED_PR_NUMBER, comment, decision },
     }),
   })
 
@@ -344,43 +336,7 @@ async function dispatchReviewFeedback(
     throw new Error(detail.error || `Dispatch failed: ${res.status}`)
   }
 
-  onStatusUpdate('Workflow triggered. Waiting for GitHub to log your feedback.')
-
-  return findCreatedReviewIssue(requestId, onStatusUpdate)
-}
-
-async function findCreatedReviewIssue(
-  requestId: string,
-  onStatusUpdate: (message: string) => void,
-  { timeoutMs = 30000, intervalMs = 2000 } = {}
-): Promise<{ url: string; number: number }> {
-  const deadline = Date.now() + timeoutMs
-  let attempt = 0
-
-  while (Date.now() < deadline) {
-    attempt += 1
-    onStatusUpdate(`Checking GitHub for your feedback. Attempt ${attempt}.`)
-
-    const res = await fetch(
-      `${WORKER_URL}poll?type=issues&labels=playground,status:review&_=${Date.now()}`,
-      { cache: 'no-store' }
-    )
-
-    if (res.ok) {
-      const issues = await res.json()
-      const match = issues.find((issue: { body?: string }) =>
-        issue.body?.includes(`request-id: ${requestId}`)
-      )
-      if (match) {
-        onStatusUpdate('Feedback logged.')
-        return { url: match.html_url, number: match.number }
-      }
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, intervalMs))
-  }
-
-  throw new Error('Timed out waiting for your feedback to appear.')
+  onStatusUpdate('Review posted.')
 }
 // --- end review ---
 // --- end GitHub wiring ---
@@ -413,7 +369,7 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
 
   const [reviewComment, setReviewComment] = useState('')
   const [reviewSubmitStatus, setReviewSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
-  const [reviewIssueUrl, setReviewIssueUrl] = useState<string | null>(null)
+  const [reviewResultUrl, setReviewResultUrl] = useState<string | null>(null)
 
   const [artifact, setArtifact] = useState({
     title: 'Authentication API Documentation',
@@ -535,8 +491,8 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
 
     try {
       const decisionLabel = decision === 'approve' ? 'Approved' : 'Changes requested'
-      const result = await dispatchReviewFeedback(reviewComment, decisionLabel, setStatusMessage)
-      setReviewIssueUrl(result.url)
+      await dispatchPRReview(reviewComment, decisionLabel, setStatusMessage)
+      setReviewResultUrl(SEED_PR_URL)
       setReviewSubmitStatus('success')
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Something went wrong.')
@@ -844,6 +800,13 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
               </div>
 
               <div className="artifact-field">
+                <label>Pull request under review</label>
+                <a href={SEED_PR_URL} target="_blank" rel="noreferrer">
+                  View the pull request on GitHub
+                </a>
+              </div>
+
+              <div className="artifact-field">
                 <label>Draft content</label>
                 <pre className="draft-preview">{SEED_DRAFT_CONTENT}</pre>
               </div>
@@ -877,10 +840,10 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
                 </button>
               </div>
 
-              {reviewSubmitStatus === 'success' && reviewIssueUrl && (
+              {reviewSubmitStatus === 'success' && reviewResultUrl && (
                 <p className="status-message status-success">
-                  Feedback logged.{' '}
-                  <a href={reviewIssueUrl} target="_blank" rel="noreferrer">
+                  Review posted.{' '}
+                  <a href={reviewResultUrl} target="_blank" rel="noreferrer">
                     View it on GitHub
                   </a>
                 </p>
