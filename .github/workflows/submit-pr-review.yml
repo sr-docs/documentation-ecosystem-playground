@@ -1,0 +1,45 @@
+name: Documentation Ecosystem - Submit PR Review Comment
+
+on:
+  workflow_dispatch:
+    inputs:
+      prNumber:
+        description: "Pull request number"
+        required: true
+        type: string
+      comment:
+        description: "Reviewer's comment"
+        required: true
+        type: string
+      decision:
+        description: "Approved or Changes requested"
+        required: true
+        type: string
+
+permissions:
+  pull-requests: write
+
+jobs:
+  comment:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Post comment on the pull request
+        env:
+          GH_TOKEN: ${{ secrets.WRITE_PAT }}
+          PR_NUMBER: ${{ github.event.inputs.prNumber }}
+          COMMENT: ${{ github.event.inputs.comment }}
+          DECISION: ${{ github.event.inputs.decision }}
+        run: |
+          cat > comment.md << EOF
+          **Review decision: $DECISION**
+
+          $COMMENT
+
+          ---
+          Submitted from the Documentation Ecosystem Playground.
+          EOF
+
+          gh pr comment "$PR_NUMBER" \
+            --repo "${{ github.repository }}" \
+            --body-file comment.md
