@@ -61,11 +61,18 @@ export const stages: StageContent[] = [
     artifacts: ['Review comments', 'Approval decisions'],
     isAvailable: true,
     exercise: {
-      title: 'Documentation Review Scenario',
-      scenario:
-        'The quick start guide draft is submitted for review. A reviewer has suggested revisions before publication.',
-      task: 'Review the feedback, identify required changes, and determine how the documentation should evolve.',
-    },
+  title: 'Documentation Review Scenario',
+  scenario:
+    'The quick start guide is ready for review. You\'re the reviewer. The plan\'s success criteria and the API reference are both available to check the draft against.',
+  task:
+    'Read the draft. Compare it to the API reference for accuracy, and to the success criteria for completeness. Leave a comment explaining what you found, then approve the draft or request changes.',
+  keyDecisions: [
+    'Check the draft\'s technical accuracy against the API reference',
+    'Decide whether an issue blocks publishing or can wait',
+    'Write a comment specific enough for the writer to act on',
+    'Choose to approve or request changes',
+  ],
+},
   },
   {
     id: 'PUBLISH',
