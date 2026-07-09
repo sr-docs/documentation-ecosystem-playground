@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { getStageContent } from '../data/stageContent'
 import '../styles/ExercisePage.css'
 
@@ -259,7 +259,7 @@ async function dispatchPlanComment(issueNumber: number, prUrl: string): Promise<
 // --- end write ---
 
 // --- begin review ---
-const SEED_DRAFT_CONTENT = `# NimbusAuth Quick Start Guide
+const SEED_DRAFT_CONTENT_FALLBACK = `# NimbusAuth Quick Start Guide
 
 Get up and running with the NimbusAuth API in a few minutes.
 
@@ -313,6 +313,70 @@ Send a POST request to /auth/logout to end your session.`
 const RELATED_REFERENCE_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/blob/main/tasks/write-instances/nimbusauth-api-reference.md`
 const SEED_PR_URL = 'https://github.com/sr-docs/documentation-ecosystem-playground/pull/28'
 const SEED_PR_NUMBER = '28'
+const SEED_DRAFT_PATH = 'tasks/write-instances/seed-fallback-001.md'
+const SEED_DRAFT_BRANCH = 'write/seed-fallback-001'
+
+async function fetchSeedDraftContent(): Promise<string> {
+  try {
+    const res = await fetch(
+      `${WORKER_URL}file?path=${encodeURIComponent(SEED_DRAFT_PATH)}&ref=${encodeURIComponent(SEED_DRAFT_BRANCH)}`,
+      { cache: 'no-store' }
+    )
+
+    if (!res.ok) {
+      return SEED_DRAFT_CONTENT_FALLBACK
+    }
+
+    const data = await res.json()
+    return data.content || SEED_DRAFT_CONTENT_FALLBACK
+  } catch {
+    return SEED_DRAFT_CONTENT_FALLBACK
+  }
+}
+
+interface CheckResult {
+  name: string
+  status: string
+  conclusion: string | null
+}
+
+async function fetchSeedPRChecks(): Promise<CheckResult[] | null> {
+  try {
+    const pullsRes = await fetch(
+      `${WORKER_URL}poll?type=pulls&_=${Date.now()}`,
+      { cache: 'no-store' }
+    )
+
+    if (!pullsRes.ok) {
+      return null
+    }
+
+    const pulls = await pullsRes.json()
+    const seedPR = pulls.find((pr: { number: number }) => String(pr.number) === SEED_PR_NUMBER)
+
+    if (!seedPR) {
+      return null
+    }
+
+    const checksRes = await fetch(
+      `${WORKER_URL}checks?sha=${seedPR.head.sha}&_=${Date.now()}`,
+      { cache: 'no-store' }
+    )
+
+    if (!checksRes.ok) {
+      return null
+    }
+
+    const data = await checksRes.json()
+    return (data.check_runs || []).map((run: { name: string; status: string; conclusion: string | null }) => ({
+      name: run.name,
+      status: run.status,
+      conclusion: run.conclusion,
+    }))
+  } catch {
+    return null
+  }
+}
 
 async function dispatchPRReview(
   comment: string,
@@ -350,6 +414,19 @@ const STYLE_GUIDE_RULES = [
   'Use a verb, not a noun phrase: say "connect," not "establish connectivity."',
 ]
 
+function checkStatusLabel(check: CheckResult): string {
+  if (check.status !== 'completed') {
+    return 'Running'
+  }
+  if (check.conclusion === 'success') {
+    return 'Passed'
+  }
+  if (check.conclusion === 'failure') {
+    return 'Failed'
+  }
+  return check.conclusion || 'Unknown'
+}
+
 export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
   const [workflowStarted, setWorkflowStarted] = useState(false)
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
@@ -371,6 +448,11 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
   const [reviewSubmitStatus, setReviewSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [reviewResultUrl, setReviewResultUrl] = useState<string | null>(null)
 
+  const [liveDraftContent, setLiveDraftContent] = useState<string>(SEED_DRAFT_CONTENT_FALLBACK)
+  const [draftLoading, setDraftLoading] = useState(false)
+  const [checks, setChecks] = useState<CheckResult[] | null>(null)
+  const [checksLoading, setChecksLoading] = useState(false)
+
   const [artifact, setArtifact] = useState({
     title: 'Authentication API Documentation',
     problem: 'Users cannot integrate with the authentication API because documentation does not exist.',
@@ -384,6 +466,23 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
   )
 
   const content = getStageContent(stage)
+
+  useEffect(() => {
+    if (stage === 'REVIEW' && workflowStarted) {
+      setDraftLoading(true)
+      fetchSeedDraftContent().then((text) => {
+        setLiveDraftContent(text)
+        setDraftLoading(false)
+      })
+
+      setChecksLoading(true)
+      fetchSeedPRChecks().then((result) => {
+        setChecks(result)
+        setChecksLoading(false)
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, workflowStarted])
 
   if (!content) {
     return <div>Invalid stage</div>
@@ -637,7 +736,8 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
                   <p>{errorMessage}</p>
                   <p className="status-detail">
                     The issue might exist even if this check failed.{' '}
-                    <a href={`https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/issues?q=is%3Aissue+label%3Aplayground+label%3Astatus%3Aplan`}
+                    <a
+                      href={`https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/issues?q=is%3Aissue+label%3Aplayground+label%3Astatus%3Aplan`}
                       target="_blank"
                       rel="noreferrer"
                     >
@@ -807,8 +907,26 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
               </div>
 
               <div className="artifact-field">
+                <label>Checks</label>
+                {checksLoading && <p className="status-message status-loading">Loading checks.</p>}
+                {!checksLoading && checks && checks.length > 0 && (
+                  <ul className="checks-list">
+                    {checks.map((check, index) => (
+                      <li key={index} className={`check-item check-${checkStatusLabel(check).toLowerCase()}`}>
+                        {check.name}: {checkStatusLabel(check)}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {!checksLoading && (!checks || checks.length === 0) && (
+                  <p className="task-text">No check results available.</p>
+                )}
+              </div>
+
+              <div className="artifact-field">
                 <label>Draft content</label>
-                <pre className="draft-preview">{SEED_DRAFT_CONTENT}</pre>
+                {draftLoading && <p className="status-message status-loading">Loading the draft.</p>}
+                {!draftLoading && <pre className="draft-preview">{liveDraftContent}</pre>}
               </div>
 
               <div className="artifact-field">
