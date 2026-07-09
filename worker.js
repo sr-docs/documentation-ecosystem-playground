@@ -102,6 +102,63 @@ async function handlePoll(request, env) {
   return jsonResponse(data, githubResponse.status);
 }
 
+async function handleFile(request, env) {
+  const url = new URL(request.url);
+  const path = url.searchParams.get('path');
+  const ref = url.searchParams.get('ref') || 'main';
+
+  if (!path) {
+    return jsonResponse({ error: 'Missing path parameter' }, 400);
+  }
+
+  const endpoint = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${path}?ref=${encodeURIComponent(ref)}`;
+
+  const githubResponse = await fetch(endpoint, {
+    headers: {
+      Authorization: `Bearer ${env.WRITE_PAT}`,
+      Accept: 'application/vnd.github+json',
+      'User-Agent': 'doc-playground-proxy',
+    },
+  });
+
+  if (!githubResponse.ok) {
+    const errorText = await githubResponse.text();
+    return jsonResponse({ error: `File fetch failed: ${errorText}` }, githubResponse.status);
+  }
+
+  const data = await githubResponse.json();
+  const decoded = atob(data.content.replace(/\n/g, ''));
+
+  return jsonResponse({ content: decoded }, 200);
+}
+
+async function handleChecks(request, env) {
+  const url = new URL(request.url);
+  const sha = url.searchParams.get('sha');
+
+  if (!sha) {
+    return jsonResponse({ error: 'Missing sha parameter' }, 400);
+  }
+
+  const endpoint = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/commits/${sha}/check-runs`;
+
+  const githubResponse = await fetch(endpoint, {
+    headers: {
+      Authorization: `Bearer ${env.WRITE_PAT}`,
+      Accept: 'application/vnd.github+json',
+      'User-Agent': 'doc-playground-proxy',
+    },
+  });
+
+  if (!githubResponse.ok) {
+    const errorText = await githubResponse.text();
+    return jsonResponse({ error: `Checks fetch failed: ${errorText}` }, githubResponse.status);
+  }
+
+  const data = await githubResponse.json();
+  return jsonResponse(data, 200);
+}
+
 export default {
   async fetch(request, env) {
     try {
@@ -118,6 +175,14 @@ export default {
 
       if (request.method === 'GET' && url.pathname === '/poll') {
         return handlePoll(request, env);
+      }
+
+      if (request.method === 'GET' && url.pathname === '/file') {
+        return handleFile(request, env);
+      }
+
+      if (request.method === 'GET' && url.pathname === '/checks') {
+        return handleChecks(request, env);
       }
 
       if (request.method === 'POST') {
