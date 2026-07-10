@@ -403,6 +403,18 @@ async function dispatchPRReview(
   onStatusUpdate('Review posted.')
 }
 // --- end review ---
+
+// --- begin publish ---
+const DEPLOY_WORKFLOW_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/actions/workflows/deploy.yml`
+const BUILD_WORKFLOW_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/actions/workflows/build.yml`
+
+const PUBLISH_GLOSSARY = [
+  { term: 'Workflow run', meaning: 'One complete attempt to build and publish the site' },
+  { term: 'Green check', meaning: 'That run succeeded' },
+  { term: 'Red X', meaning: 'That run failed' },
+  { term: 'Logs', meaning: 'The step-by-step record of what happened during that run' },
+]
+// --- end publish ---
 // --- end GitHub wiring ---
 
 const STYLE_GUIDE_RULES = [
@@ -634,8 +646,8 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
           <section className="exercise-section">
             <h2>Coming soon</h2>
             <p>
-              This stage's hands-on exercise isn't built yet. Go back and try PLAN, WRITE, or
-              REVIEW. All three connect to GitHub right now.
+              This stage's hands-on exercise isn't built yet. Go back and try PLAN, WRITE,
+              REVIEW, or PUBLISH. All four connect to GitHub right now.
             </p>
           </section>
         )}
@@ -736,8 +748,7 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
                   <p>{errorMessage}</p>
                   <p className="status-detail">
                     The issue might exist even if this check failed.{' '}
-                    <a
-                      href={`https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/issues?q=is%3Aissue+label%3Aplayground+label%3Astatus%3Aplan`}
+                    <a href={`https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/issues?q=is%3Aissue+label%3Aplayground+label%3Astatus%3Aplan`}
                       target="_blank"
                       rel="noreferrer"
                     >
@@ -970,6 +981,61 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
               {reviewSubmitStatus === 'error' && errorMessage && (
                 <p className="status-message status-error">{errorMessage}</p>
               )}
+            </div>
+          </section>
+        )}
+
+        {content.isAvailable && workflowStarted && stage === 'PUBLISH' && (
+          <section className="artifact-section">
+            <div className="artifact-header">
+              <h2>How this site publishes itself</h2>
+            </div>
+
+            <div className="artifact-card">
+              <p className="task-text">
+                Every time a change is made to this site, GitHub automatically builds it and
+                checks that nothing is broken. Below is a short guide, then two links to the
+                real history. Nothing is staged. This is the actual automation running this
+                site right now.
+              </p>
+
+              <div className="artifact-field">
+                <label>A few terms before you go</label>
+                <ul className="glossary-list">
+                  {PUBLISH_GLOSSARY.map((item, index) => (
+                    <li key={index}>
+                      <strong>{item.term}:</strong> {item.meaning}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="artifact-field">
+                <label>What to look for</label>
+                <p className="task-text">
+                  Look at the most recent run first. Its status tells you whether the current
+                  live site is working as expected.
+                </p>
+              </div>
+
+              <div className="artifact-field">
+                <label>Look at the build check</label>
+                <a href={BUILD_WORKFLOW_URL} target="_blank" rel="noreferrer">
+                  View build history on GitHub
+                </a>
+              </div>
+
+              <div className="artifact-field">
+                <label>Look at the live deployment</label>
+                <a href={DEPLOY_WORKFLOW_URL} target="_blank" rel="noreferrer">
+                  View deploy history on GitHub
+                </a>
+              </div>
+
+              <p className="status-detail">
+                You can view this history without an account. Making changes needs write
+                access to the repository, so nothing you click here can affect the live site.
+              </p>
             </div>
           </section>
         )}
