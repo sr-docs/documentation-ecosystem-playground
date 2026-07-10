@@ -81,27 +81,27 @@ export const stages: StageContent[] = [
       ],
     },
   },
-  {
-    id: 'PUBLISH',
-    label: 'PUBLISH',
-    whatHappens: ['Documentation is built.', 'Changes are deployed.', 'Content becomes available.'],
-    githubImplementation: 'GitHub Actions',
-    artifacts: ['Successful build', 'Deployment result'],
-    isAvailable: true,
-    exercise: {
-      title: 'Documentation Publishing Scenario',
-      scenario:
-        'The quick start guide is approved. Publishing isn\'t a single click. Automation builds the site, checks for problems, and deploys it, the same automation that runs on this site right now.',
-      task:
-        'Look at the real build and deploy history for this site below. Then think through: how would you test documentation before publishing it? What could go wrong, and how would you catch it?',
-      keyDecisions: [
-        'Decide what to validate before publishing: links, code examples, formatting',
-        'Plan how you\'d test a build before it goes live',
-        'Think through a rollback plan if something breaks after deployment',
-        'Decide what you\'d monitor after publishing',
-      ],
-    },
+{
+  id: 'PUBLISH',
+  label: 'PUBLISH',
+  whatHappens: ['Documentation is built.', 'Changes are deployed.', 'Content becomes available.'],
+  githubImplementation: 'GitHub Actions',
+  artifacts: ['Successful build', 'Deployment result'],
+  isAvailable: true,
+  exercise: {
+    title: 'Documentation Publishing Scenario',
+    scenario:
+      'The quick start guide is ready to check. Publishing isn\'t a single click. Automation runs checks against the content, and only publishes what passes.',
+    task:
+      'Edit the draft below if you want to. Choose which checks to run, then publish. If a check fails, fix the draft and run it again.',
+    keyDecisions: [
+      'Decide what to validate before publishing: links, headings, code formatting, style',
+      'Read the check results and decide what to fix first',
+      'Think through a rollback plan if something breaks after deployment',
+      'Decide what you\'d monitor after publishing',
+    ],
   },
+},
   {
     id: 'OBSERVE',
     label: 'OBSERVE',
