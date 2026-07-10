@@ -405,15 +405,51 @@ async function dispatchPRReview(
 // --- end review ---
 
 // --- begin publish ---
-const DEPLOY_WORKFLOW_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/actions/workflows/deploy.yml`
-const BUILD_WORKFLOW_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/actions/workflows/build.yml`
+interface PublishChecks {
+  runLinkCheck: boolean
+  runHeadingCheck: boolean
+  runCodeBlockCheck: boolean
+  runValeCheck: boolean
+}
 
-const PUBLISH_GLOSSARY = [
-  { term: 'Workflow run', meaning: 'One complete attempt to build and publish the site' },
-  { term: 'Green check', meaning: 'That run succeeded' },
-  { term: 'Red X', meaning: 'That run failed' },
-  { term: 'Logs', meaning: 'The step-by-step record of what happened during that run' },
-]
+async function dispatchPublishWorkflow(
+  draftContent: string,
+  checks: PublishChecks,
+  onStatusUpdate: (message: string) => void
+): Promise<{ runUrl: string; requestId: string }> {
+  const requestId = crypto.randomUUID()
+
+  onStatusUpdate('Sending your draft and check selection to GitHub.')
+
+  const res = await fetch(WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      workflowFile: 'publish-quickstart.yml',
+      ref: 'main',
+      inputs: {
+        draftContent,
+        runLinkCheck: String(checks.runLinkCheck),
+        runHeadingCheck: String(checks.runHeadingCheck),
+        runCodeBlockCheck: String(checks.runCodeBlockCheck),
+        runValeCheck: String(checks.runValeCheck),
+        requestId,
+      },
+    }),
+  })
+
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}))
+    throw new Error(detail.error || `Dispatch failed: ${res.status}`)
+  }
+
+  onStatusUpdate('Workflow triggered. It usually takes under a minute to finish.')
+
+  return {
+    runUrl: `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/actions/workflows/publish-quickstart.yml`,
+    requestId,
+  }
+}
 // --- end publish ---
 // --- end GitHub wiring ---
 
@@ -465,6 +501,17 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
   const [checks, setChecks] = useState<CheckResult[] | null>(null)
   const [checksLoading, setChecksLoading] = useState(false)
 
+  const [publishDraft, setPublishDraft] = useState<string>(SEED_DRAFT_CONTENT_FALLBACK)
+  const [publishLoading, setPublishLoading] = useState(false)
+  const [publishChecks, setPublishChecks] = useState<PublishChecks>({
+    runLinkCheck: true,
+    runHeadingCheck: true,
+    runCodeBlockCheck: true,
+    runValeCheck: true,
+  })
+  const [publishSubmitStatus, setPublishSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [publishRunUrl, setPublishRunUrl] = useState<string | null>(null)
+
   const [artifact, setArtifact] = useState({
     title: 'Authentication API Documentation',
     problem: 'Users cannot integrate with the authentication API because documentation does not exist.',
@@ -491,6 +538,14 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
       fetchSeedPRChecks().then((result) => {
         setChecks(result)
         setChecksLoading(false)
+      })
+    }
+
+    if (stage === 'PUBLISH' && workflowStarted) {
+      setPublishLoading(true)
+      fetchSeedDraftContent().then((text) => {
+        setPublishDraft(text)
+        setPublishLoading(false)
       })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -608,6 +663,34 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Something went wrong.')
       setReviewSubmitStatus('error')
+    }
+  }
+
+  async function handlePublish() {
+    if (publishDraft.trim().length < 20) {
+      setErrorMessage('Your draft needs at least 20 characters.')
+      setPublishSubmitStatus('error')
+      return
+    }
+
+    const anyCheckSelected = Object.values(publishChecks).some(Boolean)
+    if (!anyCheckSelected) {
+      setErrorMessage('Select at least one check to run.')
+      setPublishSubmitStatus('error')
+      return
+    }
+
+    setPublishSubmitStatus('loading')
+    setErrorMessage(null)
+    setStatusMessage('')
+
+    try {
+      const result = await dispatchPublishWorkflow(publishDraft, publishChecks, setStatusMessage)
+      setPublishRunUrl(result.runUrl)
+      setPublishSubmitStatus('success')
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Something went wrong.')
+      setPublishSubmitStatus('error')
     }
   }
 
@@ -988,54 +1071,99 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
         {content.isAvailable && workflowStarted && stage === 'PUBLISH' && (
           <section className="artifact-section">
             <div className="artifact-header">
-              <h2>How this site publishes itself</h2>
+              <h2>Check and publish</h2>
             </div>
 
             <div className="artifact-card">
-              <p className="task-text">
-                Every time a change is made to this site, GitHub automatically builds it and
-                checks that nothing is broken. Below is a short guide, then two links to the
-                real history. Nothing is staged. This is the actual automation running this
-                site right now.
-              </p>
-
               <div className="artifact-field">
-                <label>A few terms before you go</label>
-                <ul className="glossary-list">
-                  {PUBLISH_GLOSSARY.map((item, index) => (
-                    <li key={index}>
-                      <strong>{item.term}:</strong> {item.meaning}
-                    </li>
-                  ))}
-                </ul>
+                <label>Draft</label>
+                {publishLoading && <p className="status-message status-loading">Loading the draft.</p>}
+                {!publishLoading && (
+                  <textarea
+                    rows={14}
+                    value={publishDraft}
+                    onChange={(e) => setPublishDraft(e.target.value)}
+                  />
+                )}
               </div>
 
               <div className="artifact-field">
-                <label>What to look for</label>
-                <p className="task-text">
-                  Look at the most recent run first. Its status tells you whether the current
-                  live site is working as expected.
-                </p>
+                <label>Checks to run</label>
+                <div className="checkbox-list">
+                  <label className="checkbox-row">
+                    <input
+                      type="checkbox"
+                      checked={publishChecks.runLinkCheck}
+                      onChange={(e) =>
+                        setPublishChecks({ ...publishChecks, runLinkCheck: e.target.checked })
+                      }
+                    />
+                    Link check
+                  </label>
+                  <label className="checkbox-row">
+                    <input
+                      type="checkbox"
+                      checked={publishChecks.runHeadingCheck}
+                      onChange={(e) =>
+                        setPublishChecks({ ...publishChecks, runHeadingCheck: e.target.checked })
+                      }
+                    />
+                    Heading structure check
+                  </label>
+                  <label className="checkbox-row">
+                    <input
+                      type="checkbox"
+                      checked={publishChecks.runCodeBlockCheck}
+                      onChange={(e) =>
+                        setPublishChecks({ ...publishChecks, runCodeBlockCheck: e.target.checked })
+                      }
+                    />
+                    Code block formatting check
+                  </label>
+                  <label className="checkbox-row">
+                    <input
+                      type="checkbox"
+                      checked={publishChecks.runValeCheck}
+                      onChange={(e) =>
+                        setPublishChecks({ ...publishChecks, runValeCheck: e.target.checked })
+                      }
+                    />
+                    Vale style check
+                  </label>
+                </div>
               </div>
 
-              <div className="artifact-field">
-                <label>Look at the build check</label>
-                <a href={BUILD_WORKFLOW_URL} target="_blank" rel="noreferrer">
-                  View build history on GitHub
-                </a>
-              </div>
+              <button
+                className="submit-button"
+                type="button"
+                onClick={handlePublish}
+                disabled={publishSubmitStatus === 'loading'}
+              >
+                {publishSubmitStatus === 'loading' ? 'Running checks.' : 'Run checks and publish'}
+              </button>
 
-              <div className="artifact-field">
-                <label>Look at the live deployment</label>
-                <a href={DEPLOY_WORKFLOW_URL} target="_blank" rel="noreferrer">
-                  View deploy history on GitHub
-                </a>
-              </div>
+              {publishSubmitStatus === 'loading' && statusMessage && (
+                <p className="status-message status-loading">{statusMessage}</p>
+              )}
 
-              <p className="status-detail">
-                You can view this history without an account. Making changes needs write
-                access to the repository, so nothing you click here can affect the live site.
-              </p>
+              {publishSubmitStatus === 'success' && publishRunUrl && (
+                <div className="status-message status-success">
+                  <p>
+                    Workflow started.{' '}
+                    <a href={publishRunUrl} target="_blank" rel="noreferrer">
+                      Watch it run on GitHub
+                    </a>
+                  </p>
+                  <p className="status-detail">
+                    Open the run to see check results and download the published artifact. If a
+                    check fails, edit the draft above and run it again.
+                  </p>
+                </div>
+              )}
+
+              {publishSubmitStatus === 'error' && errorMessage && (
+                <p className="status-message status-error">{errorMessage}</p>
+              )}
             </div>
           </section>
         )}
