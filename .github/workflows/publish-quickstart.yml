@@ -1,0 +1,140 @@
+name: Documentation Ecosystem - Publish Quick Start
+
+on:
+  workflow_dispatch:
+    inputs:
+      draftContent:
+        description: "Draft content to check and publish"
+        required: true
+        type: string
+      runLinkCheck:
+        description: "Run link check"
+        required: true
+        type: boolean
+        default: false
+      runHeadingCheck:
+        description: "Run heading structure check"
+        required: true
+        type: boolean
+        default: false
+      runCodeBlockCheck:
+        description: "Run code block formatting check"
+        required: true
+        type: boolean
+        default: false
+      runValeCheck:
+        description: "Run Vale style check"
+        required: true
+        type: boolean
+        default: false
+      requestId:
+        description: "Request ID for tracking"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Write draft to file
+        env:
+          DRAFT_CONTENT: ${{ github.event.inputs.draftContent }}
+        run: |
+          echo "DRAFT_PATH=quick-start-guide.md" >> "$GITHUB_ENV"
+          printf '%s' "$DRAFT_CONTENT" > quick-start-guide.md
+
+      - name: Start results file
+        run: |
+          echo "# Publish check results" > results.md
+          echo "" >> results.md
+          echo "Request ID: ${{ github.event.inputs.requestId }}" >> results.md
+          echo "" >> results.md
+
+      - name: Link check
+        if: ${{ github.event.inputs.runLinkCheck == 'true' }}
+        run: |
+          echo "## Link check" >> results.md
+          URLS=$(grep -oE 'https?://[^ )]+' "$DRAFT_PATH" | sort -u)
+          FAILED=0
+          for URL in $URLS; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$URL" || echo "000")
+            if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
+              echo "- PASS: $URL ($STATUS)" >> results.md
+            else
+              echo "- FAIL: $URL ($STATUS)" >> results.md
+              FAILED=1
+            fi
+          done
+          if [ -z "$URLS" ]; then
+            echo "- No links found in the draft." >> results.md
+          fi
+          echo "" >> results.md
+          exit 0
+
+      - name: Heading structure check
+        if: ${{ github.event.inputs.runHeadingCheck == 'true' }}
+        run: |
+          echo "## Heading structure check" >> results.md
+          node -e "
+          const fs = require('fs');
+          const text = fs.readFileSync(process.env.DRAFT_PATH, 'utf8');
+          const lines = text.split('\n').filter(l => /^#{1,6} /.test(l));
+          let lastLevel = 0;
+          let ok = true;
+          const issues = [];
+          for (const line of lines) {
+            const level = line.match(/^(#{1,6}) /)[1].length;
+            if (lastLevel !== 0 && level > lastLevel + 1) {
+              issues.push('Heading jumps from level ' + lastLevel + ' to ' + level + ': \"' + line + '\"');
+              ok = false;
+            }
+            lastLevel = level;
+          }
+          if (ok) {
+            console.log('- PASS: heading levels increase in order, no skipped levels.');
+          } else {
+            issues.forEach(i => console.log('- FAIL: ' + i));
+          }
+          " >> results.md
+          echo "" >> results.md
+
+      - name: Code block formatting check
+        if: ${{ github.event.inputs.runCodeBlockCheck == 'true' }}
+        run: |
+          echo "## Code block formatting check" >> results.md
+          COUNT=$(grep -c '```' "$DRAFT_PATH" || true)
+          if [ $((COUNT % 2)) -eq 0 ]; then
+            echo "- PASS: all code fences are closed ($COUNT fence markers)." >> results.md
+          else
+            echo "- FAIL: an odd number of code fence markers was found ($COUNT). A code block may be unclosed." >> results.md
+          fi
+          echo "" >> results.md
+
+      - name: Install Vale
+        if: ${{ github.event.inputs.runValeCheck == 'true' }}
+        run: |
+          curl -sfL https://github.com/errata-ai/vale/releases/latest/download/vale_Linux_64-bit.tar.gz -o vale.tar.gz
+          tar -xzf vale.tar.gz vale
+          sudo mv vale /usr/local/bin/vale
+
+      - name: Vale style check
+        if: ${{ github.event.inputs.runValeCheck == 'true' }}
+        run: |
+          echo "## Vale style check" >> results.md
+          vale --config=.vale.ini "$DRAFT_PATH" >> results.md 2>&1 || true
+          echo "" >> results.md
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: quick-start-${{ github.event.inputs.requestId }}
+          path: |
+            quick-start-guide.md
+            results.md
+          retention-days: 1
