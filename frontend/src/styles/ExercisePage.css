@@ -273,3 +273,16 @@
   background: var(--color-paper);
   color: var(--color-muted);
 }
+
+.glossary-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.glossary-list li {
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--color-ink);
+  margin-bottom: var(--space-2);
+}
