@@ -4,6 +4,7 @@ const ALLOWED_WORKFLOWS = [
   'request-write-review.yml',
   'comment-on-plan-issue.yml',
   'submit-pr-review.yml',
+  'publish-quickstart.yml',
 ];
 const ALLOWED_ORIGIN = 'https://sr-docs.github.io';
 const GITHUB_OWNER = 'sr-docs';
