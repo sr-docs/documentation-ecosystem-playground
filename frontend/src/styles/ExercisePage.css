@@ -300,3 +300,27 @@
   font-size: 0.95rem;
   cursor: pointer;
 }
+
+.review-status-badge {
+  display: inline-block;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.review-status-approved {
+  background: var(--color-accent-soft);
+  color: var(--color-success);
+}
+
+.review-status-changes-requested {
+  background: #fbeaea;
+  color: var(--color-error);
+}
+
+.review-status-not-reviewed,
+.review-status-unknown {
+  background: var(--color-paper);
+  color: var(--color-muted);
+}
