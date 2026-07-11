@@ -412,6 +412,47 @@ interface PublishChecks {
   runValeCheck: boolean
 }
 
+type ReviewDecisionStatus = 'approved' | 'changes-requested' | 'not-reviewed' | 'unknown'
+
+async function fetchLatestReviewDecision(): Promise<ReviewDecisionStatus> {
+  try {
+    const res = await fetch(
+      `${WORKER_URL}pr-comments?prNumber=${SEED_PR_NUMBER}&_=${Date.now()}`,
+      { cache: 'no-store' }
+    )
+
+    if (!res.ok) {
+      return 'unknown'
+    }
+
+    const comments = await res.json()
+
+    if (!Array.isArray(comments) || comments.length === 0) {
+      return 'not-reviewed'
+    }
+
+    const latest = comments.find((c: { body?: string }) =>
+      c.body?.includes('Review decision:')
+    )
+
+    if (!latest) {
+      return 'not-reviewed'
+    }
+
+    if (latest.body.includes('Review decision: Approved')) {
+      return 'approved'
+    }
+
+    if (latest.body.includes('Review decision: Changes requested')) {
+      return 'changes-requested'
+    }
+
+    return 'unknown'
+  } catch {
+    return 'unknown'
+  }
+}
+
 async function dispatchPublishWorkflow(
   draftContent: string,
   checks: PublishChecks,
@@ -475,6 +516,19 @@ function checkStatusLabel(check: CheckResult): string {
   return check.conclusion || 'Unknown'
 }
 
+function reviewStatusLabel(status: ReviewDecisionStatus): string {
+  if (status === 'approved') {
+    return 'Approved'
+  }
+  if (status === 'changes-requested') {
+    return 'Changes requested'
+  }
+  if (status === 'not-reviewed') {
+    return 'Not yet reviewed'
+  }
+  return 'Unknown'
+}
+
 export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
   const [workflowStarted, setWorkflowStarted] = useState(false)
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
@@ -511,6 +565,8 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
   })
   const [publishSubmitStatus, setPublishSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [publishRunUrl, setPublishRunUrl] = useState<string | null>(null)
+  const [reviewDecisionStatus, setReviewDecisionStatus] = useState<ReviewDecisionStatus | null>(null)
+  const [reviewDecisionLoading, setReviewDecisionLoading] = useState(false)
 
   const [artifact, setArtifact] = useState({
     title: 'Authentication API Documentation',
@@ -546,6 +602,12 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
       fetchSeedDraftContent().then((text) => {
         setPublishDraft(text)
         setPublishLoading(false)
+      })
+
+      setReviewDecisionLoading(true)
+      fetchLatestReviewDecision().then((status) => {
+        setReviewDecisionStatus(status)
+        setReviewDecisionLoading(false)
       })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -831,7 +893,8 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
                   <p>{errorMessage}</p>
                   <p className="status-detail">
                     The issue might exist even if this check failed.{' '}
-                    <a href={`https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/issues?q=is%3Aissue+label%3Aplayground+label%3Astatus%3Aplan`}
+                    <a
+                      href={`https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/issues?q=is%3Aissue+label%3Aplayground+label%3Astatus%3Aplan`}
                       target="_blank"
                       rel="noreferrer"
                     >
@@ -1075,6 +1138,18 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
             </div>
 
             <div className="artifact-card">
+              <div className="artifact-field">
+                <label>Review status</label>
+                {reviewDecisionLoading && (
+                  <p className="status-message status-loading">Checking review status.</p>
+                )}
+                {!reviewDecisionLoading && reviewDecisionStatus && (
+                  <p className={`review-status-badge review-status-${reviewDecisionStatus}`}>
+                    {reviewStatusLabel(reviewDecisionStatus)}
+                  </p>
+                )}
+              </div>
+
               <div className="artifact-field">
                 <label>Draft</label>
                 {publishLoading && <p className="status-message status-loading">Loading the draft.</p>}
