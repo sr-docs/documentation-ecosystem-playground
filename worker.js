@@ -160,6 +160,33 @@ async function handleChecks(request, env) {
   return jsonResponse(data, 200);
 }
 
+async function handlePRComments(request, env) {
+  const url = new URL(request.url);
+  const prNumber = url.searchParams.get('prNumber');
+
+  if (!prNumber) {
+    return jsonResponse({ error: 'Missing prNumber parameter' }, 400);
+  }
+
+  const endpoint = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/issues/${prNumber}/comments?sort=created&direction=desc&per_page=10`;
+
+  const githubResponse = await fetch(endpoint, {
+    headers: {
+      Authorization: `Bearer ${env.WRITE_PAT}`,
+      Accept: 'application/vnd.github+json',
+      'User-Agent': 'doc-playground-proxy',
+    },
+  });
+
+  if (!githubResponse.ok) {
+    const errorText = await githubResponse.text();
+    return jsonResponse({ error: `Comments fetch failed: ${errorText}` }, githubResponse.status);
+  }
+
+  const data = await githubResponse.json();
+  return jsonResponse(data, 200);
+}
+
 export default {
   async fetch(request, env) {
     try {
@@ -184,6 +211,10 @@ export default {
 
       if (request.method === 'GET' && url.pathname === '/checks') {
         return handleChecks(request, env);
+      }
+
+      if (request.method === 'GET' && url.pathname === '/pr-comments') {
+        return handlePRComments(request, env);
       }
 
       if (request.method === 'POST') {
