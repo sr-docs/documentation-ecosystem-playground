@@ -456,6 +456,7 @@ async function fetchLatestReviewDecision(): Promise<ReviewDecisionStatus> {
 async function dispatchPublishWorkflow(
   draftContent: string,
   checks: PublishChecks,
+  reviewStatus: ReviewDecisionStatus,
   onStatusUpdate: (message: string) => void
 ): Promise<{ runUrl: string; requestId: string }> {
   const requestId = crypto.randomUUID()
@@ -470,6 +471,7 @@ async function dispatchPublishWorkflow(
       ref: 'main',
       inputs: {
         draftContent,
+        reviewStatus,
         runLinkCheck: String(checks.runLinkCheck),
         runHeadingCheck: String(checks.runHeadingCheck),
         runCodeBlockCheck: String(checks.runCodeBlockCheck),
@@ -728,33 +730,38 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
     }
   }
 
-  async function handlePublish() {
-    if (publishDraft.trim().length < 20) {
-      setErrorMessage('Your draft needs at least 20 characters.')
-      setPublishSubmitStatus('error')
-      return
-    }
-
-    const anyCheckSelected = Object.values(publishChecks).some(Boolean)
-    if (!anyCheckSelected) {
-      setErrorMessage('Select at least one check to run.')
-      setPublishSubmitStatus('error')
-      return
-    }
-
-    setPublishSubmitStatus('loading')
-    setErrorMessage(null)
-    setStatusMessage('')
-
-    try {
-      const result = await dispatchPublishWorkflow(publishDraft, publishChecks, setStatusMessage)
-      setPublishRunUrl(result.runUrl)
-      setPublishSubmitStatus('success')
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Something went wrong.')
-      setPublishSubmitStatus('error')
-    }
+async function handlePublish() {
+  if (publishDraft.trim().length < 20) {
+    setErrorMessage('Your draft needs at least 20 characters.')
+    setPublishSubmitStatus('error')
+    return
   }
+
+  const anyCheckSelected = Object.values(publishChecks).some(Boolean)
+  if (!anyCheckSelected) {
+    setErrorMessage('Select at least one check to run.')
+    setPublishSubmitStatus('error')
+    return
+  }
+
+  setPublishSubmitStatus('loading')
+  setErrorMessage(null)
+  setStatusMessage('')
+
+  try {
+    const result = await dispatchPublishWorkflow(
+      publishDraft,
+      publishChecks,
+      reviewDecisionStatus ?? 'unknown',
+      setStatusMessage
+    )
+    setPublishRunUrl(result.runUrl)
+    setPublishSubmitStatus('success')
+  } catch (err) {
+    setErrorMessage(err instanceof Error ? err.message : 'Something went wrong.')
+    setPublishSubmitStatus('error')
+  }
+}
 
   return (
     <div className="exercise-page">
