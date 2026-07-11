@@ -7,6 +7,10 @@ on:
         description: "Draft content to check and publish"
         required: true
         type: string
+      reviewStatus:
+        description: "Current review status: approved, changes-requested, not-reviewed, unknown"
+        required: true
+        type: string
       runLinkCheck:
         description: "Run link check"
         required: true
@@ -49,11 +53,22 @@ jobs:
           echo "DRAFT_PATH=quick-start-guide.md" >> "$GITHUB_ENV"
           printf '%s' "$DRAFT_CONTENT" > quick-start-guide.md
 
+      - name: Add watermark if not reviewed
+        if: ${{ github.event.inputs.reviewStatus == 'not-reviewed' }}
+        run: |
+          {
+            echo "> **NOT REVIEWED.** This draft was published without going through REVIEW."
+            echo ""
+            cat quick-start-guide.md
+          } > quick-start-guide.tmp.md
+          mv quick-start-guide.tmp.md quick-start-guide.md
+
       - name: Start results file
         run: |
           echo "# Publish check results" > results.md
           echo "" >> results.md
           echo "Request ID: ${{ github.event.inputs.requestId }}" >> results.md
+          echo "Review status at publish time: ${{ github.event.inputs.reviewStatus }}" >> results.md
           echo "" >> results.md
 
       - name: Link check
@@ -118,19 +133,35 @@ jobs:
 
       - name: Install Vale
         if: ${{ github.event.inputs.runValeCheck == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VALE_URL=$(curl -s https://api.github.com/repos/errata-ai/vale/releases/latest \
-            | grep "browser_download_url.*Linux_64-bit.tar.gz" \
+          VALE_URL=$(curl -sL -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/errata-ai/vale/releases/latest \
+            | grep "browser_download_url" \
+            | grep "Linux_64-bit.tar.gz" \
             | cut -d '"' -f 4)
-          curl -sfL "$VALE_URL" -o vale.tar.gz
-          tar -xzf vale.tar.gz vale
-          sudo mv vale /usr/local/bin/vale
+
+          if [ -z "$VALE_URL" ]; then
+            echo "VALE_INSTALLED=false" >> "$GITHUB_ENV"
+          else
+            curl -sfL "$VALE_URL" -o vale.tar.gz && \
+            tar -xzf vale.tar.gz vale && \
+            sudo mv vale /usr/local/bin/vale && \
+            echo "VALE_INSTALLED=true" >> "$GITHUB_ENV" || \
+            echo "VALE_INSTALLED=false" >> "$GITHUB_ENV"
+          fi
 
       - name: Vale style check
         if: ${{ github.event.inputs.runValeCheck == 'true' }}
         run: |
           echo "## Vale style check" >> results.md
-          vale --config=.vale.ini "$DRAFT_PATH" >> results.md 2>&1 || true
+          if [ "$VALE_INSTALLED" = "true" ]; then
+            vale --config=.vale.ini "$DRAFT_PATH" >> results.md 2>&1 || true
+          else
+            echo "Vale could not be installed for this run. This check was skipped." >> results.md
+          fi
           echo "" >> results.md
 
       - name: Upload artifact
