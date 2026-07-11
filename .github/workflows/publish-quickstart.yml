@@ -119,7 +119,10 @@ jobs:
       - name: Install Vale
         if: ${{ github.event.inputs.runValeCheck == 'true' }}
         run: |
-          curl -sfL https://github.com/errata-ai/vale/releases/latest/download/vale_Linux_64-bit.tar.gz -o vale.tar.gz
+          VALE_URL=$(curl -s https://api.github.com/repos/errata-ai/vale/releases/latest \
+            | grep "browser_download_url.*Linux_64-bit.tar.gz" \
+            | cut -d '"' -f 4)
+          curl -sfL "$VALE_URL" -o vale.tar.gz
           tar -xzf vale.tar.gz vale
           sudo mv vale /usr/local/bin/vale
 
