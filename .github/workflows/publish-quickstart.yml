@@ -153,6 +153,12 @@ jobs:
             echo "VALE_INSTALLED=false" >> "$GITHUB_ENV"
           fi
 
+      - name: Sync Vale styles
+        if: ${{ github.event.inputs.runValeCheck == 'true' && env.VALE_INSTALLED == 'true' }}
+        run: |
+          mkdir -p .vale/styles
+          vale sync --config=.vale.ini
+
       - name: Vale style check
         if: ${{ github.event.inputs.runValeCheck == 'true' }}
         run: |
