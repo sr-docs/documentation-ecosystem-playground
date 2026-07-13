@@ -37,7 +37,7 @@ on:
         type: string
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   publish:
@@ -178,3 +178,27 @@ jobs:
             quick-start-guide.md
             results.md
           retention-days: 1
+
+      - name: Commit results for inline display
+        env:
+          GH_TOKEN: ${{ secrets.WRITE_PAT }}
+        run: |
+          BRANCH="publish-results"
+          REQUEST_ID="${{ github.event.inputs.requestId }}"
+
+          git fetch origin
+          if git show-ref --verify --quiet "refs/remotes/origin/$BRANCH"; then
+            git checkout -B "$BRANCH" "origin/$BRANCH"
+          else
+            git checkout -B "$BRANCH"
+          fi
+
+          mkdir -p "publish-results/$REQUEST_ID"
+          cp quick-start-guide.md "publish-results/$REQUEST_ID/quick-start-guide.md"
+          cp results.md "publish-results/$REQUEST_ID/results.md"
+
+          git config user.name "Documentation Ecosystem Playground"
+          git config user.email "actions@github.com"
+          git add "publish-results/$REQUEST_ID"
+          git commit -m "Publish results for $REQUEST_ID"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" "$BRANCH"
