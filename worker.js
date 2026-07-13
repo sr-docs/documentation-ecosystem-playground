@@ -5,6 +5,7 @@ const ALLOWED_WORKFLOWS = [
   'comment-on-plan-issue.yml',
   'submit-pr-review.yml',
   'publish-quickstart.yml',
+  'create-observe-issue.yml',
 ];
 const ALLOWED_ORIGIN = 'https://sr-docs.github.io';
 const GITHUB_OWNER = 'sr-docs';
@@ -187,6 +188,26 @@ async function handlePRComments(request, env) {
   return jsonResponse(data, 200);
 }
 
+async function handlePublishHistory(request, env) {
+  const endpoint = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/commits?path=publish-results&sha=publish-results&per_page=20`;
+
+  const githubResponse = await fetch(endpoint, {
+    headers: {
+      Authorization: `Bearer ${env.WRITE_PAT}`,
+      Accept: 'application/vnd.github+json',
+      'User-Agent': 'doc-playground-proxy',
+    },
+  });
+
+  if (!githubResponse.ok) {
+    const errorText = await githubResponse.text();
+    return jsonResponse({ error: `History fetch failed: ${errorText}` }, githubResponse.status);
+  }
+
+  const data = await githubResponse.json();
+  return jsonResponse(data, 200);
+}
+
 export default {
   async fetch(request, env) {
     try {
@@ -215,6 +236,10 @@ export default {
 
       if (request.method === 'GET' && url.pathname === '/pr-comments') {
         return handlePRComments(request, env);
+      }
+
+      if (request.method === 'GET' && url.pathname === '/publish-history') {
+        return handlePublishHistory(request, env);
       }
 
       if (request.method === 'POST') {
