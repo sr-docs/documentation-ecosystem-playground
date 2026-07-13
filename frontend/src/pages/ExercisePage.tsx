@@ -453,6 +453,57 @@ async function fetchLatestReviewDecision(): Promise<ReviewDecisionStatus> {
   }
 }
 
+interface PublishResults {
+  resultsContent: string
+  finalDraftContent: string
+}
+
+async function fetchPublishedFile(path: string): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `${WORKER_URL}file?path=${encodeURIComponent(path)}&ref=publish-results&_=${Date.now()}`,
+      { cache: 'no-store' }
+    )
+
+    if (!res.ok) {
+      return null
+    }
+
+    const data = await res.json()
+    return data.content || null
+  } catch {
+    return null
+  }
+}
+
+async function pollForPublishResults(
+  requestId: string,
+  onStatusUpdate: (message: string) => void,
+  { timeoutMs = 90000, intervalMs = 4000 } = {}
+): Promise<PublishResults> {
+  const deadline = Date.now() + timeoutMs
+  let attempt = 0
+
+  while (Date.now() < deadline) {
+    attempt += 1
+    onStatusUpdate(`Waiting for the workflow to finish. Attempt ${attempt}.`)
+
+    const resultsContent = await fetchPublishedFile(`publish-results/${requestId}/results.md`)
+
+    if (resultsContent) {
+      const finalDraftContent = await fetchPublishedFile(
+        `publish-results/${requestId}/quick-start-guide.md`
+      )
+      onStatusUpdate('Results found.')
+      return { resultsContent, finalDraftContent: finalDraftContent || '' }
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, intervalMs))
+  }
+
+  throw new Error('Timed out waiting for the publish results to appear.')
+}
+
 async function dispatchPublishWorkflow(
   draftContent: string,
   checks: PublishChecks,
@@ -494,6 +545,129 @@ async function dispatchPublishWorkflow(
   }
 }
 // --- end publish ---
+
+// --- begin observe ---
+interface PublishHistoryEntry {
+  requestId: string
+  date: string
+  reviewStatus: string
+  failCount: number
+}
+
+function parsePublishCommits(commits: Array<{ commit: { message: string; author: { date: string } } }>): PublishHistoryEntry[] {
+  const entries: { requestId: string; date: string }[] = []
+
+  for (const commit of commits) {
+    const match = commit.commit.message.match(/Publish results for ([\w-]+)/)
+    if (match) {
+      entries.push({ requestId: match[1], date: commit.commit.author.date })
+    }
+  }
+
+  return entries.map((e) => ({ ...e, reviewStatus: 'Loading', failCount: -1 }))
+}
+
+async function fetchPublishHistory(): Promise<PublishHistoryEntry[]> {
+  try {
+    const res = await fetch(`${WORKER_URL}publish-history&_=${Date.now()}`.replace('publish-history&', 'publish-history?'), {
+      cache: 'no-store',
+    })
+
+    if (!res.ok) {
+      return []
+    }
+
+    const commits = await res.json()
+    const entries = parsePublishCommits(commits)
+
+    const detailed = await Promise.all(
+      entries.slice(0, 10).map(async (entry) => {
+        const resultsContent = await fetchPublishedFile(`publish-results/${entry.requestId}/results.md`)
+        if (!resultsContent) {
+          return { ...entry, reviewStatus: 'Unknown', failCount: 0 }
+        }
+
+        const statusMatch = resultsContent.match(/Review status at publish time: (.+)/)
+        const failCount = (resultsContent.match(/FAIL/g) || []).length
+
+        return {
+          ...entry,
+          reviewStatus: statusMatch ? statusMatch[1].trim() : 'Unknown',
+          failCount,
+        }
+      })
+    )
+
+    return detailed
+  } catch {
+    return []
+  }
+}
+
+async function dispatchObserveIssue(
+  title: string,
+  observation: string,
+  recommendation: string,
+  onStatusUpdate: (message: string) => void
+): Promise<{ url: string; number: number }> {
+  const requestId = crypto.randomUUID()
+
+  onStatusUpdate('Sending your observation to GitHub.')
+
+  const res = await fetch(WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      workflowFile: 'create-observe-issue.yml',
+      ref: 'main',
+      inputs: { title, observation, recommendation, requestId },
+    }),
+  })
+
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}))
+    throw new Error(detail.error || `Dispatch failed: ${res.status}`)
+  }
+
+  onStatusUpdate('Workflow triggered. Waiting for GitHub to create the issue.')
+
+  return findCreatedObserveIssue(requestId, onStatusUpdate)
+}
+
+async function findCreatedObserveIssue(
+  requestId: string,
+  onStatusUpdate: (message: string) => void,
+  { timeoutMs = 30000, intervalMs = 2000 } = {}
+): Promise<{ url: string; number: number }> {
+  const deadline = Date.now() + timeoutMs
+  let attempt = 0
+
+  while (Date.now() < deadline) {
+    attempt += 1
+    onStatusUpdate(`Checking GitHub for your issue. Attempt ${attempt}.`)
+
+    const res = await fetch(
+      `${WORKER_URL}poll?type=issues&labels=playground,status:observe&_=${Date.now()}`,
+      { cache: 'no-store' }
+    )
+
+    if (res.ok) {
+      const issues = await res.json()
+      const match = issues.find((issue: { body?: string }) =>
+        issue.body?.includes(`request-id: ${requestId}`)
+      )
+      if (match) {
+        onStatusUpdate('Issue found.')
+        return { url: match.html_url, number: match.number }
+      }
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, intervalMs))
+  }
+
+  throw new Error('Timed out waiting for the issue to appear.')
+}
+// --- end observe ---
 // --- end GitHub wiring ---
 
 const STYLE_GUIDE_RULES = [
@@ -569,6 +743,15 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
   const [publishRunUrl, setPublishRunUrl] = useState<string | null>(null)
   const [reviewDecisionStatus, setReviewDecisionStatus] = useState<ReviewDecisionStatus | null>(null)
   const [reviewDecisionLoading, setReviewDecisionLoading] = useState(false)
+  const [publishResultsContent, setPublishResultsContent] = useState<string | null>(null)
+  const [publishFinalDraft, setPublishFinalDraft] = useState<string | null>(null)
+
+  const [publishHistory, setPublishHistory] = useState<PublishHistoryEntry[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [observation, setObservation] = useState('')
+  const [recommendation, setRecommendation] = useState('')
+  const [observeSubmitStatus, setObserveSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [observeIssueUrl, setObserveIssueUrl] = useState<string | null>(null)
 
   const [artifact, setArtifact] = useState({
     title: 'Authentication API Documentation',
@@ -610,6 +793,14 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
       fetchLatestReviewDecision().then((status) => {
         setReviewDecisionStatus(status)
         setReviewDecisionLoading(false)
+      })
+    }
+
+    if (stage === 'OBSERVE' && workflowStarted) {
+      setHistoryLoading(true)
+      fetchPublishHistory().then((entries) => {
+        setPublishHistory(entries)
+        setHistoryLoading(false)
       })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -730,38 +921,76 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
     }
   }
 
-async function handlePublish() {
-  if (publishDraft.trim().length < 20) {
-    setErrorMessage('Your draft needs at least 20 characters.')
-    setPublishSubmitStatus('error')
-    return
+  async function handlePublish() {
+    if (publishDraft.trim().length < 20) {
+      setErrorMessage('Your draft needs at least 20 characters.')
+      setPublishSubmitStatus('error')
+      return
+    }
+
+    const anyCheckSelected = Object.values(publishChecks).some(Boolean)
+    if (!anyCheckSelected) {
+      setErrorMessage('Select at least one check to run.')
+      setPublishSubmitStatus('error')
+      return
+    }
+
+    setPublishSubmitStatus('loading')
+    setErrorMessage(null)
+    setStatusMessage('')
+    setPublishResultsContent(null)
+    setPublishFinalDraft(null)
+
+    try {
+      const result = await dispatchPublishWorkflow(
+        publishDraft,
+        publishChecks,
+        reviewDecisionStatus ?? 'unknown',
+        setStatusMessage
+      )
+      setPublishRunUrl(result.runUrl)
+
+      const results = await pollForPublishResults(result.requestId, setStatusMessage)
+      setPublishResultsContent(results.resultsContent)
+      setPublishFinalDraft(results.finalDraftContent)
+      setPublishSubmitStatus('success')
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Something went wrong.')
+      setPublishSubmitStatus('error')
+    }
   }
 
-  const anyCheckSelected = Object.values(publishChecks).some(Boolean)
-  if (!anyCheckSelected) {
-    setErrorMessage('Select at least one check to run.')
-    setPublishSubmitStatus('error')
-    return
-  }
+  async function handleSubmitObservation() {
+    if (observation.trim().length < 10) {
+      setErrorMessage('Add a bit more detail to your observation.')
+      setObserveSubmitStatus('error')
+      return
+    }
 
-  setPublishSubmitStatus('loading')
-  setErrorMessage(null)
-  setStatusMessage('')
+    if (recommendation.trim().length < 10) {
+      setErrorMessage('Add a bit more detail to your recommendation.')
+      setObserveSubmitStatus('error')
+      return
+    }
 
-  try {
-    const result = await dispatchPublishWorkflow(
-      publishDraft,
-      publishChecks,
-      reviewDecisionStatus ?? 'unknown',
-      setStatusMessage
-    )
-    setPublishRunUrl(result.runUrl)
-    setPublishSubmitStatus('success')
-  } catch (err) {
-    setErrorMessage(err instanceof Error ? err.message : 'Something went wrong.')
-    setPublishSubmitStatus('error')
+    setObserveSubmitStatus('loading')
+    setErrorMessage(null)
+    setStatusMessage('')
+
+    try {
+      const result = await dispatchObserveIssue(
+        'Documentation observation: NimbusAuth quick start',
+        observation,
+        recommendation,
+        setStatusMessage
+      )
+      setObserveIssueUrl(result.url)
+      setObserveSubmitStatus('success')
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Something went wrong.')
+      setObserveSubmitStatus('error')
+    }
   }
-}
 
   return (
     <div className="exercise-page">
@@ -798,8 +1027,7 @@ async function handlePublish() {
           <section className="exercise-section">
             <h2>Coming soon</h2>
             <p>
-              This stage's hands-on exercise isn't built yet. Go back and try PLAN, WRITE,
-              REVIEW, or PUBLISH. All four connect to GitHub right now.
+              This stage's hands-on exercise isn't built yet.
             </p>
           </section>
         )}
@@ -1228,22 +1456,117 @@ async function handlePublish() {
                 <p className="status-message status-loading">{statusMessage}</p>
               )}
 
-              {publishSubmitStatus === 'success' && publishRunUrl && (
+              {publishSubmitStatus === 'success' && publishResultsContent && (
                 <div className="status-message status-success">
-                  <p>
-                    Workflow started.{' '}
-                    <a href={publishRunUrl} target="_blank" rel="noreferrer">
-                      Watch it run on GitHub
-                    </a>
-                  </p>
-                  <p className="status-detail">
-                    Open the run to see check results and download the published artifact. If a
-                    check fails, edit the draft above and run it again.
-                  </p>
+                  <p>Published. Results are shown below.</p>
+
+                  <div className="artifact-field">
+                    <label>Check results</label>
+                    <pre className="draft-preview">{publishResultsContent}</pre>
+                  </div>
+
+                  {publishFinalDraft && (
+                    <div className="artifact-field">
+                      <label>Published content</label>
+                      <pre className="draft-preview">{publishFinalDraft}</pre>
+                    </div>
+                  )}
+
+                  {publishRunUrl && (
+                    <p className="status-detail">
+                      <a href={publishRunUrl} target="_blank" rel="noreferrer">
+                        View the full workflow run on GitHub
+                      </a>
+                    </p>
+                  )}
                 </div>
               )}
 
               {publishSubmitStatus === 'error' && errorMessage && (
+                <p className="status-message status-error">{errorMessage}</p>
+              )}
+            </div>
+          </section>
+        )}
+
+        {content.isAvailable && workflowStarted && stage === 'OBSERVE' && (
+          <section className="artifact-section">
+            <div className="artifact-header">
+              <h2>Publish history</h2>
+            </div>
+
+            <div className="artifact-card">
+              {historyLoading && <p className="status-message status-loading">Loading history.</p>}
+
+              {!historyLoading && publishHistory.length === 0 && (
+                <p className="task-text">
+                  No publish history yet. Try PUBLISH first, then come back here.
+                </p>
+              )}
+
+              {!historyLoading && publishHistory.length > 0 && (
+                <ul className="history-list">
+                  {publishHistory.map((entry, index) => (
+                    <li key={index} className="history-item">
+                      <div>
+                        <strong>{new Date(entry.date).toLocaleString()}</strong>
+                        <span className={`review-status-badge review-status-${entry.reviewStatus.toLowerCase().replace(/ /g, '-')}`}>
+                          {' '}{entry.reviewStatus}
+                        </span>
+                      </div>
+                      <p className="task-text">
+                        {entry.failCount === 0
+                          ? 'All selected checks passed.'
+                          : `${entry.failCount} check line(s) flagged FAIL.`}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <div className="artifact-field">
+                <label>What did you observe</label>
+                <textarea
+                  rows={4}
+                  value={observation}
+                  onChange={(e) => setObservation(e.target.value)}
+                  placeholder="What pattern or issue do you see in the history above?"
+                />
+              </div>
+
+              <div className="artifact-field">
+                <label>What should happen next</label>
+                <textarea
+                  rows={4}
+                  value={recommendation}
+                  onChange={(e) => setRecommendation(e.target.value)}
+                  placeholder="What would you recommend doing about it?"
+                />
+              </div>
+
+              <button
+                className="submit-button"
+                type="button"
+                onClick={handleSubmitObservation}
+                disabled={observeSubmitStatus === 'loading'}
+              >
+                {observeSubmitStatus === 'loading' ? 'Filing issue.' : 'File an issue'}
+              </button>
+
+              {observeSubmitStatus === 'loading' && statusMessage && (
+                <p className="status-message status-loading">{statusMessage}</p>
+              )}
+
+              {observeSubmitStatus === 'success' && observeIssueUrl && (
+                <p className="status-message status-success">
+                  Issue created.{' '}
+                  <a href={observeIssueUrl} target="_blank" rel="noreferrer">
+                    View it on GitHub
+                  </a>
+                </p>
+              )}
+
+              {observeSubmitStatus === 'error' && errorMessage && (
                 <p className="status-message status-error">{errorMessage}</p>
               )}
             </div>
