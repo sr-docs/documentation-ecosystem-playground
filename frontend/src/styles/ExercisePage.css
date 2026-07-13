@@ -157,6 +157,8 @@
   margin-top: var(--space-1);
 }
 
+/* Plan issue picker (WRITE) */
+
 .plan-issue-option {
   display: block;
   width: 100%;
@@ -172,6 +174,8 @@
 .plan-issue-option:hover {
   border-color: var(--color-accent);
 }
+
+/* Style guide panel (WRITE) */
 
 .style-guide-toggle {
   align-self: flex-start;
@@ -208,6 +212,8 @@
   margin-right: var(--space-2);
 }
 
+/* Draft and results preview (REVIEW, PUBLISH) */
+
 .draft-preview {
   white-space: pre-wrap;
   font-family: var(--font-mono);
@@ -220,6 +226,8 @@
   max-height: 400px;
   overflow-y: auto;
 }
+
+/* Review decision buttons (REVIEW) */
 
 .review-decision-row {
   display: flex;
@@ -245,6 +253,8 @@
   background: var(--color-accent-soft);
   color: var(--color-accent);
 }
+
+/* CI check results (REVIEW) */
 
 .checks-list {
   list-style: none;
@@ -274,6 +284,8 @@
   color: var(--color-muted);
 }
 
+/* PUBLISH walkthrough glossary */
+
 .glossary-list {
   list-style: none;
   padding: 0;
@@ -286,6 +298,8 @@
   color: var(--color-ink);
   margin-bottom: var(--space-2);
 }
+
+/* PUBLISH check selection */
 
 .checkbox-list {
   display: flex;
@@ -300,6 +314,8 @@
   font-size: 0.95rem;
   cursor: pointer;
 }
+
+/* Review status badge (PUBLISH, OBSERVE) */
 
 .review-status-badge {
   display: inline-block;
@@ -323,4 +339,21 @@
 .review-status-unknown {
   background: var(--color-paper);
   color: var(--color-muted);
+}
+
+/* Publish history (OBSERVE) */
+
+.history-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--space-6) 0;
+}
+
+.history-item {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.history-item:last-child {
+  border-bottom: none;
 }
