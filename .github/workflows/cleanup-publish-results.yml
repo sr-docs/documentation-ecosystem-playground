@@ -1,0 +1,57 @@
+name: Cleanup Publish Results
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout publish-results branch
+        uses: actions/checkout@v4
+        with:
+          ref: publish-results
+
+      - name: Delete folders older than 30 days
+        env:
+          GH_TOKEN: ${{ secrets.WRITE_PAT }}
+        run: |
+          THRESHOLD_DAYS=30
+          DELETED=0
+
+          if [ ! -d "publish-results" ]; then
+            echo "No publish-results folder found. Nothing to clean up."
+            exit 0
+          fi
+
+          for DIR in publish-results/*/; do
+            [ -d "$DIR" ] || continue
+
+            LAST_COMMIT_DATE=$(git log -1 --format=%ct -- "$DIR")
+            if [ -z "$LAST_COMMIT_DATE" ]; then
+              continue
+            fi
+
+            NOW=$(date +%s)
+            AGE_DAYS=$(( (NOW - LAST_COMMIT_DATE) / 86400 ))
+
+            if [ "$AGE_DAYS" -ge "$THRESHOLD_DAYS" ]; then
+              echo "Removing $DIR (age: $AGE_DAYS days)"
+              git rm -r --quiet "$DIR"
+              DELETED=1
+            fi
+          done
+
+          if [ "$DELETED" -eq 1 ]; then
+            git config user.name "Documentation Ecosystem Playground"
+            git config user.email "actions@github.com"
+            git commit -m "Remove publish results older than $THRESHOLD_DAYS days"
+            git push "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" publish-results
+          else
+            echo "Nothing old enough to remove."
+          fi
