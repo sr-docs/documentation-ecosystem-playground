@@ -103,29 +103,30 @@ export const stages: StageContent[] = [
   },
 },
   {
-    id: 'OBSERVE',
-    label: 'OBSERVE',
-    whatHappens: [
-      'Documentation performance is evaluated.',
-      'Improvements are identified.',
-      'Future work is planned.',
+  id: 'OBSERVE',
+  label: 'OBSERVE',
+  whatHappens: [
+    'Documentation performance is evaluated.',
+    'Improvements are identified.',
+    'Future work is planned.',
+  ],
+  githubImplementation: 'Issues and Iteration',
+  artifacts: ['Improvement opportunities', 'Follow-up work'],
+  isAvailable: true,
+  exercise: {
+    title: 'Documentation Observation Scenario',
+    scenario:
+      'Every time someone runs PUBLISH, the result is saved. Below is the real history: what was published, whether it was reviewed first, and what the checks found.',
+    task:
+      'Look through the real publish history. Decide what it tells you. Then file an issue describing what you observed and what should happen next.',
+    keyDecisions: [
+      'Look for patterns: repeated failures, unreviewed publishes, missing checks',
+      'Decide what\'s worth fixing versus what\'s a one-time issue',
+      'Write an observation specific enough to act on',
+      'Recommend a next step: a new plan, a process change, or nothing yet',
     ],
-    githubImplementation: 'Issues and Iteration',
-    artifacts: ['Improvement opportunities', 'Follow-up work'],
-    isAvailable: false,
-    exercise: {
-      title: 'Documentation Observation Scenario',
-      scenario:
-        'The quick start guide has been live for two weeks. You notice: 40% of users skip the quick start and go straight to the API reference. Support tickets mention confusion about environment setup.',
-      task: 'Analyze this feedback. What would you improve? Which metrics matter most?',
-      keyDecisions: [
-        'Prioritize improvements based on user behavior',
-        'Update content based on support ticket patterns',
-        'Consider adding interactive elements or video tutorials',
-        'Plan an iteration schedule and success metrics',
-      ],
-    },
   },
+},
 ]
 
 export function getStageContent(stageId: string): StageContent | undefined {
