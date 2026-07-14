@@ -637,7 +637,7 @@ async function dispatchObserveIssue(
 async function findCreatedObserveIssue(
   requestId: string,
   onStatusUpdate: (message: string) => void,
-  { timeoutMs = 30000, intervalMs = 2000 } = {}
+  { timeoutMs = 60000, intervalMs = 3000 } = {}
 ): Promise<{ url: string; number: number }> {
   const deadline = Date.now() + timeoutMs
   let attempt = 0
