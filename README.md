@@ -1,72 +1,66 @@
+# Documentation Ecosystem Playground
+
+Learn Docs as Code by doing it. This project walks you through a real documentation workflow, planning, writing, reviewing, publishing, and observing, using actual GitHub issues, branches, pull requests, and automation. Nothing here is simulated.
+
 ## Purpose
-Learn the basics of Docs as Code by participating in a GitHub-native workflow. Observe the systems that enable documentation production.
+
+Most documentation portfolios show finished writing. This one shows the system behind it: how a plan becomes a draft, how a draft gets reviewed, and how automation keeps that process honest. The goal is to demonstrate documentation systems design, not just documentation.
 
 ## Core principles
 
-| Principle         | Decision                                 |
-| ----------------- | ---------------------------------------- |
-| Unit of learning  | Workflow slice                           |
-| Center of gravity | Documentation ecosystem                  |
-| Learning style    | Interactive exploration                  |
-| Progression       | Workflow capabilities                    |
-| Automation        | GitHub-native                            |
-| Portfolio goal    | Demonstrate documentation systems design |
+| Principle | Decision |
+|---|---|
+| Unit of learning | A workflow slice, one real piece of work per stage |
+| Center of gravity | The documentation ecosystem, not a single document |
+| Learning style | Interactive. You do the work, not read about it |
+| Automation | GitHub-native. No separate backend, no database |
+| Portfolio goal | Demonstrate documentation systems design |
 
-## Documentation ecosystem
+## The five stages
 
-| Stage   | Purpose          | GitHub Primitive | Portfolio Signal      |
-| ------- | ---------------- | ---------------- | --------------------- |
-| PLAN    | Define work      | Issue            | Workflow design       |
-| WRITE   | Create content   | Branch + Commit  | Content strategy      |
-| REVIEW  | Validate quality | Pull Request     | Review and collaboration systems |
-| PUBLISH | Deploy docs      | GitHub Action    | Automation            |
-| OBSERVE | Iterate          | Issues + Updates | Operations            |
+| Stage | Purpose | GitHub primitive | What you do |
+|---|---|---|---|
+| PLAN | Define the work | Issue | Write a brief: the problem, the audience, what success looks like |
+| WRITE | Create the content | Branch and pull request | Draft a quick start guide, submit it as a real PR |
+| REVIEW | Check the work | Pull request comment | Read the draft against a reference, approve it or request changes |
+| PUBLISH | Ship it | GitHub Actions | Pick which checks to run, fix what fails, publish |
+| OBSERVE | Learn from it | Issues and iteration | Look at real publish history, file an issue with what you'd do next |
 
-## User journey
-1. Homepage
-2. Select ecosystem stage
-3. Enter workflow slice
-4. Perform GitHub activity
-5. Observe system response
-6. Complete workflow
+All five stages are live and connected to real GitHub state.
 
-## Workflow experiences
+## Your path through it
 
-| Experience                        | What You learn   |
-| --------------------------------- | --------------------- |
-| How Documentation Enters a System | Planning and creation |
-| How Quality Is Maintained         | Review workflows      |
-| How Documentation Reaches Users   | Deployment            |
-| How Documentation Evolves         | Maintenance           |
-| How Documentation Systems Improve | Operations            |
+1. Land on the homepage.
+2. Pick a stage.
+3. Do the work: fill in a form, draft content, leave a review comment, run a check, or write an observation.
+4. Watch GitHub respond in real time, an issue appears, a PR opens, a check runs.
+5. Move to the next stage, or explore another one.
 
-## Homepage concept
-- Above the fold: Interactive ecosystem map
-- Primary interaction: Click a workflow stage
-- Visitor takeaways: "This person understands documentation ecosystems." and "I can try this process myself."
+## What you'll come away understanding
 
-## MVP scope
-v1:
-- One workflow slice
-- One GitHub workflow
-- One visitor path
-- GitHub Pages deployment
+| If you try this stage | You'll understand |
+|---|---|
+| PLAN | How documentation work gets scoped before anyone writes a word |
+| WRITE | How real teams draft content in branches and pull requests, not documents |
+| REVIEW | What a reviewer actually checks, and why review is a gate, not a formality |
+| PUBLISH | Why publishing isn't a single click, and what automated checks catch |
+| OBSERVE | How teams decide what to improve once something is already live |
 
-What does not exist yet:
-- AI workflows
-- Advanced automation
-- Multiple workflow paths
+## Known limitations
 
-## Known limitations in REVIEW
+Two things are worth stating plainly, since they're deliberate choices, not oversights.
 
-REVIEW works end to end: it loads a real pull request, shows live draft content and CI status, and posts a real comment back to GitHub. Two limitations are worth stating directly, since they're deliberate scoping decisions, not oversights.
+**REVIEW posts a comment, not a formal GitHub review.** The pull request under review and the account running REVIEW's automation are the same identity, and GitHub won't let an account approve its own pull request. Rather than add a second account just to satisfy this, REVIEW posts a real, visible comment on the actual PR instead. The review conversation is real. The formal approval mechanism isn't demonstrated.
 
-### Review comments don't count toward branch protection
+**REVIEW always loads the same example pull request.** WRITE lets you open a real PR from any open plan, but REVIEW doesn't yet let you review the PR you just created, or pick from a list of open ones. It uses one fixed example instead: a draft seeded with a real, catchable error, and a correct reference to check it against. Building a picker here would surface a harder problem this project doesn't solve, there's no way to tell a visitor reviewing their own recent submission apart from one reviewing someone else's, since there's no visitor identity system at all.
 
-`main` requires one approval before any pull request can merge. REVIEW's Approve and Request changes buttons post a real comment to the pull request, but not a formal GitHub review. This is because the pull request under review and the identity running REVIEW's automation are the same GitHub account, and GitHub blocks an account from formally approving its own pull request.
+More detail on both, along with the reasoning behind every major decision in this project, lives in `docs/design.md`.
 
-Two ways to close this gap exist. Add a second GitHub account to act as the reviewer identity, or accept that REVIEW demonstrates the review conversation without demonstrating the required-approval mechanism. This project takes the second path, since it avoids adding a second account for a single-repository portfolio project, and the comment itself is real, visible, and tied to the actual pull request.
+## Project status
 
-### REVIEW loads one fixed pull request, not any pull request a visitor creates
-
-WRITE lets a visitor create a real pull request from any open plan. REVIEW does not yet let a visitor review that pull request, or choose from a list of open ones. It loads a single, fixed example: the seed pull request, seeded specifically to contain a realistic technical error alongside a correct reference to check it against.
+| Area | Status |
+|---|---|
+| Core lifecycle (PLAN through OBSERVE) | Built and working end to end |
+| GitHub Pages deployment | Live |
+| Multiple activities per stage | Not built. Each stage runs one real exercise, by design, not by gap |
+| AI-assisted workflows | Deferred. Part of the original concept, intentionally left for later |
