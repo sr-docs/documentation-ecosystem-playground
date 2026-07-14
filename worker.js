@@ -7,9 +7,110 @@ const ALLOWED_WORKFLOWS = [
   'publish-quickstart.yml',
   'create-observe-issue.yml',
 ];
+
 const ALLOWED_ORIGIN = 'https://sr-docs.github.io';
 const GITHUB_OWNER = 'sr-docs';
 const GITHUB_REPO = 'documentation-ecosystem-playground';
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Per-workflow input rules: each field maps to a max length (numbers use a
+// numeric check instead). Any field not listed here is rejected outright.
+const INPUT_RULES = {
+  'create-plan-issue.yml': {
+    title: 200,
+    problem: 2000,
+    audience: 500,
+    documentationNeeded: 1000,
+    successCriteria: 1000,
+    requestId: 'uuid',
+  },
+  'create-write-pr.yml': {
+    title: 200,
+    draftContent: 2000,
+    requestId: 'uuid',
+  },
+  'request-write-review.yml': {
+    prNumber: 'number',
+  },
+  'comment-on-plan-issue.yml': {
+    issueNumber: 'number',
+    prUrl: 500,
+  },
+  'submit-pr-review.yml': {
+    prNumber: 'number',
+    comment: 2000,
+    decision: ['Approved', 'Changes requested'],
+  },
+  'publish-quickstart.yml': {
+    draftContent: 2000,
+    reviewStatus: ['approved', 'changes-requested', 'not-reviewed', 'unknown'],
+    runLinkCheck: 'boolean',
+    runHeadingCheck: 'boolean',
+    runCodeBlockCheck: 'boolean',
+    runValeCheck: 'boolean',
+    requestId: 'uuid',
+  },
+  'create-observe-issue.yml': {
+    title: 200,
+    observation: 2000,
+    recommendation: 2000,
+    requestId: 'uuid',
+  },
+};
+
+function validateInputs(workflowFile, inputs) {
+  const rules = INPUT_RULES[workflowFile];
+  if (!rules) {
+    return 'No validation rules defined for this workflow.';
+  }
+
+  if (typeof inputs !== 'object' || inputs === null) {
+    return 'Inputs must be an object.';
+  }
+
+  const allowedKeys = Object.keys(rules);
+  const givenKeys = Object.keys(inputs);
+
+  for (const key of givenKeys) {
+    if (!allowedKeys.includes(key)) {
+      return `Unexpected input field: ${key}`;
+    }
+  }
+
+  for (const key of allowedKeys) {
+    const rule = rules[key];
+    const value = inputs[key];
+
+    if (value === undefined || value === null) {
+      return `Missing required input: ${key}`;
+    }
+
+    if (rule === 'uuid') {
+      if (typeof value !== 'string' || !UUID_PATTERN.test(value)) {
+        return `Invalid requestId format for: ${key}`;
+      }
+    } else if (rule === 'number') {
+      if (typeof value !== 'string' || !/^\d+$/.test(value)) {
+        return `Field must be a numeric string: ${key}`;
+      }
+    } else if (rule === 'boolean') {
+      if (value !== 'true' && value !== 'false') {
+        return `Field must be "true" or "false": ${key}`;
+      }
+    } else if (Array.isArray(rule)) {
+      if (!rule.includes(value)) {
+        return `Invalid value for ${key}. Allowed: ${rule.join(', ')}`;
+      }
+    } else if (typeof rule === 'number') {
+      if (typeof value !== 'string' || value.length === 0 || value.length > rule) {
+        return `Field ${key} must be a string between 1 and ${rule} characters.`;
+      }
+    }
+  }
+
+  return null;
+}
 
 function corsHeaders() {
   return {
@@ -59,6 +160,11 @@ async function handleDispatch(request, env) {
 
   if (!ALLOWED_WORKFLOWS.includes(workflowFile)) {
     return jsonResponse({ error: 'Workflow not allowed' }, 400);
+  }
+
+  const validationError = validateInputs(workflowFile, inputs);
+  if (validationError) {
+    return jsonResponse({ error: `Invalid input: ${validationError}` }, 400);
   }
 
   const githubUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/workflows/${workflowFile}/dispatches`;
@@ -208,6 +314,17 @@ async function handlePublishHistory(request, env) {
   return jsonResponse(data, 200);
 }
 
+async function logDispatch(env, workflowFile) {
+  if (!env.RATE_LIMIT) {
+    return;
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  const key = `log:${today}:${workflowFile}`;
+  const current = await env.RATE_LIMIT.get(key);
+  const count = current ? parseInt(current, 10) : 0;
+  await env.RATE_LIMIT.put(key, String(count + 1), { expirationTtl: 60 * 60 * 24 * 8 });
+}
+
 export default {
   async fetch(request, env) {
     try {
@@ -243,7 +360,12 @@ export default {
       }
 
       if (request.method === 'POST') {
-        return handleDispatch(request, env);
+        const response = await handleDispatch(request, env);
+        if (response.status === 200) {
+          const body = await request.clone().json().catch(() => ({}));
+          await logDispatch(env, body.workflowFile);
+        }
+        return response;
       }
 
       return jsonResponse({ error: 'Method not allowed' }, 405);
