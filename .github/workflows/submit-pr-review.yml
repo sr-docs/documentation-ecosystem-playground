@@ -31,14 +31,12 @@ jobs:
           COMMENT: ${{ github.event.inputs.comment }}
           DECISION: ${{ github.event.inputs.decision }}
         run: |
-          cat > comment.md << EOF
-          **Review decision: $DECISION**
-
-          $COMMENT
-
-          ---
-          Submitted from the Documentation Ecosystem Playground.
-          EOF
+          {
+            printf '**Review decision: %s**\n\n' "$DECISION"
+            printf '%s\n\n' "$COMMENT"
+            printf -- '---\n'
+            printf 'Submitted from the Documentation Ecosystem Playground.\n'
+          } > comment.md
 
           gh pr comment "$PR_NUMBER" \
             --repo "${{ github.repository }}" \
