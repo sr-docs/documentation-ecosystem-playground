@@ -48,31 +48,16 @@ jobs:
           DOCS: ${{ github.event.inputs.documentationNeeded }}
           SUCCESS: ${{ github.event.inputs.successCriteria }}
           REQUEST_ID: ${{ github.event.inputs.requestId }}
-
         run: |
-          cat > issue.md << EOF
-          ## Problem
-
-          $PROBLEM
-
-          ## Audience
-
-          $AUDIENCE
-
-          ## Documentation Needed
-
-          $DOCS
-
-          ## Success Criteria
-
-          $SUCCESS
-
-          ---
-
-          Generated from the Documentation Ecosystem Playground.
-
-          <!-- request-id: $REQUEST_ID -->
-          EOF
+          {
+            printf '## Problem\n\n%s\n\n' "$PROBLEM"
+            printf '## Audience\n\n%s\n\n' "$AUDIENCE"
+            printf '## Documentation Needed\n\n%s\n\n' "$DOCS"
+            printf '## Success Criteria\n\n%s\n\n' "$SUCCESS"
+            printf -- '---\n\n'
+            printf 'Generated from the Documentation Ecosystem Playground.\n\n'
+            printf '<!-- request-id: %s -->\n' "$REQUEST_ID"
+          } > issue.md
 
           gh issue create \
             --title "$TITLE" \
