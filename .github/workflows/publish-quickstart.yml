@@ -136,22 +136,34 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VALE_URL=$(curl -sL -H "Authorization: Bearer $GH_TOKEN" \
+          RELEASE_JSON=$(curl -sL -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/errata-ai/vale/releases/latest \
-            | grep "browser_download_url" \
-            | grep "Linux_64-bit.tar.gz" \
-            | cut -d '"' -f 4)
+            https://api.github.com/repos/errata-ai/vale/releases/latest)
 
-          if [ -z "$VALE_URL" ]; then
+          VALE_URL=$(echo "$RELEASE_JSON" | grep "browser_download_url" | grep "Linux_64-bit.tar.gz" | cut -d '"' -f 4)
+          CHECKSUMS_URL=$(echo "$RELEASE_JSON" | grep "browser_download_url" | grep "checksums.txt" | cut -d '"' -f 4)
+
+          if [ -z "$VALE_URL" ] || [ -z "$CHECKSUMS_URL" ]; then
             echo "VALE_INSTALLED=false" >> "$GITHUB_ENV"
-          else
-            curl -sfL "$VALE_URL" -o vale.tar.gz && \
-            tar -xzf vale.tar.gz vale && \
-            sudo mv vale /usr/local/bin/vale && \
-            echo "VALE_INSTALLED=true" >> "$GITHUB_ENV" || \
-            echo "VALE_INSTALLED=false" >> "$GITHUB_ENV"
+            exit 0
           fi
+
+          curl -sfL "$VALE_URL" -o vale.tar.gz
+          curl -sfL "$CHECKSUMS_URL" -o checksums.txt
+
+          EXPECTED=$(grep "Linux_64-bit.tar.gz" checksums.txt | awk '{print $1}')
+          ACTUAL=$(sha256sum vale.tar.gz | awk '{print $1}')
+
+          if [ "$EXPECTED" != "$ACTUAL" ]; then
+            echo "Checksum mismatch. Refusing to install Vale."
+            echo "VALE_INSTALLED=false" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          tar -xzf vale.tar.gz vale && \
+          sudo mv vale /usr/local/bin/vale && \
+          echo "VALE_INSTALLED=true" >> "$GITHUB_ENV" || \
+          echo "VALE_INSTALLED=false" >> "$GITHUB_ENV"
 
       - name: Sync Vale styles
         if: ${{ github.event.inputs.runValeCheck == 'true' && env.VALE_INSTALLED == 'true' }}
