@@ -54,7 +54,7 @@ jobs:
           printf '%s' "$DRAFT_CONTENT" > quick-start-guide.md
 
       - name: Add watermark if not reviewed
-        if: ${{ github.event.inputs.reviewStatus == 'not-reviewed' }}
+        if: ${{ github.event.inputs.reviewStatus == 'not-reviewed' || github.event.inputs.reviewStatus == 'unknown' }}
         run: |
           {
             echo "> **NOT REVIEWED.** This draft was published without going through REVIEW."
