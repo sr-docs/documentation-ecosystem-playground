@@ -5,6 +5,7 @@ import '../styles/ExercisePage.css'
 interface ExercisePageProps {
   stage: string
   onBack: () => void
+  onNavigateToStage: (stage: string) => void
 }
 
 // --- GitHub wiring ---
@@ -315,6 +316,7 @@ const SEED_PR_URL = 'https://github.com/sr-docs/documentation-ecosystem-playgrou
 const SEED_PR_NUMBER = '28'
 const SEED_DRAFT_PATH = 'tasks/write-instances/seed-fallback-001.md'
 const SEED_DRAFT_BRANCH = 'write/seed-fallback-001'
+const PUBLISH_LOCK_KEY = 'publishApprovedContent'
 
 async function fetchSeedDraftContent(): Promise<string> {
   try {
@@ -569,7 +571,7 @@ function parsePublishCommits(commits: Array<{ commit: { message: string; author:
 
 async function fetchPublishHistory(): Promise<PublishHistoryEntry[]> {
   try {
-    const res = await fetch(`${WORKER_URL}publish-history&_=${Date.now()}`.replace('publish-history&', 'publish-history?'), {
+    const res = await fetch(`${WORKER_URL}publish-history?_=${Date.now()}`, {
       cache: 'no-store',
     })
 
@@ -705,7 +707,7 @@ function reviewStatusLabel(status: ReviewDecisionStatus): string {
   return 'Unknown'
 }
 
-export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
+export default function ExercisePage({ stage, onBack, onNavigateToStage }: ExercisePageProps) {
   const [workflowStarted, setWorkflowStarted] = useState(false)
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [issueUrl, setIssueUrl] = useState<string | null>(null)
@@ -725,6 +727,7 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
   const [reviewComment, setReviewComment] = useState('')
   const [reviewSubmitStatus, setReviewSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [reviewResultUrl, setReviewResultUrl] = useState<string | null>(null)
+  const [lastReviewDecision, setLastReviewDecision] = useState<'approve' | 'request-changes' | null>(null)
 
   const [liveDraftContent, setLiveDraftContent] = useState<string>(SEED_DRAFT_CONTENT_FALLBACK)
   const [draftLoading, setDraftLoading] = useState(false)
@@ -745,6 +748,9 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
   const [reviewDecisionLoading, setReviewDecisionLoading] = useState(false)
   const [publishResultsContent, setPublishResultsContent] = useState<string | null>(null)
   const [publishFinalDraft, setPublishFinalDraft] = useState<string | null>(null)
+
+  const [publishLockedContent, setPublishLockedContent] = useState<string | null>(null)
+  const [publishIsLocked, setPublishIsLocked] = useState(false)
 
   const [publishHistory, setPublishHistory] = useState<PublishHistoryEntry[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
@@ -783,11 +789,20 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
     }
 
     if (stage === 'PUBLISH' && workflowStarted) {
-      setPublishLoading(true)
-      fetchSeedDraftContent().then((text) => {
-        setPublishDraft(text)
+      const locked = sessionStorage.getItem(PUBLISH_LOCK_KEY)
+
+      if (locked) {
+        setPublishDraft(locked)
+        setPublishLockedContent(locked)
+        setPublishIsLocked(true)
         setPublishLoading(false)
-      })
+      } else {
+        setPublishLoading(true)
+        fetchSeedDraftContent().then((text) => {
+          setPublishDraft(text)
+          setPublishLoading(false)
+        })
+      }
 
       setReviewDecisionLoading(true)
       fetchLatestReviewDecision().then((status) => {
@@ -914,11 +929,23 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
       const decisionLabel = decision === 'approve' ? 'Approved' : 'Changes requested'
       await dispatchPRReview(reviewComment, decisionLabel, setStatusMessage)
       setReviewResultUrl(SEED_PR_URL)
+      setLastReviewDecision(decision)
+
+      if (decision === 'approve') {
+        sessionStorage.setItem(PUBLISH_LOCK_KEY, liveDraftContent)
+      } else {
+        sessionStorage.removeItem(PUBLISH_LOCK_KEY)
+      }
+
       setReviewSubmitStatus('success')
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Something went wrong.')
       setReviewSubmitStatus('error')
     }
+  }
+
+  function handleUnlockPublishDraft() {
+    setPublishIsLocked(false)
   }
 
   async function handlePublish() {
@@ -941,11 +968,16 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
     setPublishResultsContent(null)
     setPublishFinalDraft(null)
 
+    const contentModified = publishLockedContent !== null && publishDraft !== publishLockedContent
+    const effectiveReviewStatus: ReviewDecisionStatus = contentModified
+      ? 'unknown'
+      : reviewDecisionStatus ?? 'unknown'
+
     try {
       const result = await dispatchPublishWorkflow(
         publishDraft,
         publishChecks,
-        reviewDecisionStatus ?? 'unknown',
+        effectiveReviewStatus,
         setStatusMessage
       )
       setPublishRunUrl(result.runUrl)
@@ -954,6 +986,8 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
       setPublishResultsContent(results.resultsContent)
       setPublishFinalDraft(results.finalDraftContent)
       setPublishSubmitStatus('success')
+
+      sessionStorage.removeItem(PUBLISH_LOCK_KEY)
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Something went wrong.')
       setPublishSubmitStatus('error')
@@ -991,6 +1025,8 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
       setObserveSubmitStatus('error')
     }
   }
+
+  const publishContentModified = publishLockedContent !== null && publishDraft !== publishLockedContent
 
   return (
     <div className="exercise-page">
@@ -1128,8 +1164,7 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
                   <p>{errorMessage}</p>
                   <p className="status-detail">
                     The issue might exist even if this check failed.{' '}
-                    <a
-                      href={`https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/issues?q=is%3Aissue+label%3Aplayground+label%3Astatus%3Aplan`}
+                    <a href={`https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/issues?q=is%3Aissue+label%3Aplayground+label%3Astatus%3Aplan`}
                       target="_blank"
                       rel="noreferrer"
                     >
@@ -1321,42 +1356,75 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
                 {!draftLoading && <pre className="draft-preview">{liveDraftContent}</pre>}
               </div>
 
-              <div className="artifact-field">
-                <label>Your comment</label>
-                <textarea
-                  rows={4}
-                  value={reviewComment}
-                  onChange={(e) => setReviewComment(e.target.value)}
-                  placeholder="What did you notice in this draft?"
-                />
-              </div>
+              {reviewSubmitStatus !== 'success' && (
+                <>
+                  <div className="artifact-field">
+                    <label>Your comment</label>
+                    <textarea
+                      rows={4}
+                      value={reviewComment}
+                      onChange={(e) => setReviewComment(e.target.value)}
+                      placeholder="What did you notice in this draft?"
+                    />
+                  </div>
 
-              <div className="review-decision-row">
-                <button
-                  type="button"
-                  className="decision-button approve"
-                  onClick={() => handleSubmitReview('approve')}
-                  disabled={reviewSubmitStatus === 'loading'}
-                >
-                  {reviewSubmitStatus === 'loading' ? 'Submitting.' : 'Approve'}
-                </button>
-                <button
-                  type="button"
-                  className="decision-button"
-                  onClick={() => handleSubmitReview('request-changes')}
-                  disabled={reviewSubmitStatus === 'loading'}
-                >
-                  {reviewSubmitStatus === 'loading' ? 'Submitting.' : 'Request changes'}
-                </button>
-              </div>
+                  <div className="review-decision-row">
+                    <button
+                      type="button"
+                      className="decision-button approve"
+                      onClick={() => handleSubmitReview('approve')}
+                      disabled={reviewSubmitStatus === 'loading'}
+                    >
+                      {reviewSubmitStatus === 'loading' ? 'Submitting.' : 'Approve'}
+                    </button>
+                    <button
+                      type="button"
+                      className="decision-button"
+                      onClick={() => handleSubmitReview('request-changes')}
+                      disabled={reviewSubmitStatus === 'loading'}
+                    >
+                      {reviewSubmitStatus === 'loading' ? 'Submitting.' : 'Request changes'}
+                    </button>
+                  </div>
+                </>
+              )}
 
-              {reviewSubmitStatus === 'success' && reviewResultUrl && (
-                <p className="status-message status-success">
-                  Review posted.{' '}
-                  <a href={reviewResultUrl} target="_blank" rel="noreferrer">
-                    View it on GitHub
-                  </a>
-                </p>
+              {reviewSubmitStatus === 'success' && reviewResultUrl && lastReviewDecision === 'approve' && (
+                <div className="status-message status-success next-step-banner">
+                  <p>
+                    Approved.{' '}
+                    <a href={reviewResultUrl} target="_blank" rel="noreferrer">
+                      View the comment on GitHub
+                    </a>
+                  </p>
+                  <p>This draft is ready to publish.</p>
+                  <button
+                    className="submit-button"
+                    type="button"
+                    onClick={() => onNavigateToStage('PUBLISH')}
+                  >
+                    Go to PUBLISH
+                  </button>
+                </div>
+              )}
+
+              {reviewSubmitStatus === 'success' && reviewResultUrl && lastReviewDecision === 'request-changes' && (
+                <div className="status-message status-error next-step-banner">
+                  <p>
+                    Changes requested.{' '}
+                    <a href={reviewResultUrl} target="_blank" rel="noreferrer">
+                      View the comment on GitHub
+                    </a>
+                  </p>
+                  <p>The draft is back in WRITE. A writer needs to address this feedback.</p>
+                  <button
+                    className="submit-button"
+                    type="button"
+                    onClick={() => onNavigateToStage('WRITE')}
+                  >
+                    Go to WRITE
+                  </button>
+                </div>
               )}
 
               {reviewSubmitStatus === 'error' && errorMessage && (
@@ -1385,6 +1453,21 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
                 )}
               </div>
 
+              {publishIsLocked && (
+                <div className="locked-banner">
+                  <p>This is the reviewed, approved draft. It hasn't been edited since review.</p>
+                  <button type="button" className="style-guide-toggle" onClick={handleUnlockPublishDraft}>
+                    Edit anyway
+                  </button>
+                </div>
+              )}
+
+              {!publishIsLocked && publishContentModified && (
+                <div className="modified-banner">
+                  <p>You've edited the approved draft. Publishing now will mark this as not reviewed.</p>
+                </div>
+              )}
+
               <div className="artifact-field">
                 <label>Draft</label>
                 {publishLoading && <p className="status-message status-loading">Loading the draft.</p>}
@@ -1393,6 +1476,7 @@ export default function ExercisePage({ stage, onBack }: ExercisePageProps) {
                     rows={14}
                     value={publishDraft}
                     onChange={(e) => setPublishDraft(e.target.value)}
+                    readOnly={publishIsLocked}
                   />
                 )}
               </div>
