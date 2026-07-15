@@ -15,7 +15,13 @@ function App() {
   }
 
   if (exerciseStage) {
-    return <ExercisePage stage={exerciseStage} onBack={handleBackFromExercise} />
+    return (
+      <ExercisePage
+        stage={exerciseStage}
+        onBack={handleBackFromExercise}
+        onNavigateToStage={handleTryStage}
+      />
+    )
   }
 
   return <HomePage selectedStage={selectedStage} onSelectStage={setSelectedStage} onTryStage={handleTryStage} />
