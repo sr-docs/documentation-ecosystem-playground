@@ -41,3 +41,38 @@ jobs:
           gh pr comment "$PR_NUMBER" \
             --repo "${{ github.repository }}" \
             --body-file comment.md
+
+      - name: Convert PR back to draft if changes were requested
+        if: ${{ github.event.inputs.decision == 'Changes requested' }}
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ github.event.inputs.prNumber }}
+        with:
+          github-token: ${{ secrets.WRITE_PAT }}
+          script: |
+            const prNumber = parseInt(process.env.PR_NUMBER, 10);
+
+            try {
+              const { data: pr } = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber,
+              });
+
+              if (pr.draft) {
+                console.log('PR is already a draft. Nothing to do.');
+                return;
+              }
+
+              await github.graphql(`
+                mutation($pullRequestId: ID!) {
+                  convertPullRequestToDraft(input: { pullRequestId: $pullRequestId }) {
+                    pullRequest { id }
+                  }
+                }
+              `, { pullRequestId: pr.node_id });
+
+              console.log('PR converted back to draft.');
+            } catch (err) {
+              console.log('Could not convert PR to draft: ' + err.message);
+            }
