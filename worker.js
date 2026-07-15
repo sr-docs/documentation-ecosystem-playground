@@ -360,11 +360,14 @@ export default {
       }
 
       if (request.method === 'POST') {
+        const requestForLogging = request.clone();
         const response = await handleDispatch(request, env);
+
         if (response.status === 200) {
-          const body = await request.clone().json().catch(() => ({}));
-          await logDispatch(env, body.workflowFile);
+          const loggedBody = await requestForLogging.json().catch(() => ({}));
+          await logDispatch(env, loggedBody.workflowFile);
         }
+
         return response;
       }
 
