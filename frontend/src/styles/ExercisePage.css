@@ -357,3 +357,31 @@
 .history-item:last-child {
   border-bottom: none;
 }
+
+.next-step-banner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+
+.locked-banner,
+.modified-banner {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.locked-banner {
+  background: var(--color-accent-soft);
+  color: var(--color-ink);
+}
+
+.modified-banner {
+  background: #fff8e6;
+  color: #7a5c00;
+}
