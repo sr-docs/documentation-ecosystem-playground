@@ -6,6 +6,7 @@ const ALLOWED_WORKFLOWS = [
   'submit-pr-review.yml',
   'publish-quickstart.yml',
   'create-observe-issue.yml',
+  'update-write-pr.yml',
 ];
 
 const ALLOWED_ORIGIN = 'https://sr-docs.github.io';
@@ -14,8 +15,6 @@ const GITHUB_REPO = 'documentation-ecosystem-playground';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// Per-workflow input rules: each field maps to a max length (numbers use a
-// numeric check instead). Any field not listed here is rejected outright.
 const INPUT_RULES = {
   'create-plan-issue.yml': {
     title: 200,
@@ -55,6 +54,10 @@ const INPUT_RULES = {
     title: 200,
     observation: 2000,
     recommendation: 2000,
+    requestId: 'uuid',
+  },
+  'update-write-pr.yml': {
+    draftContent: 2000,
     requestId: 'uuid',
   },
 };
