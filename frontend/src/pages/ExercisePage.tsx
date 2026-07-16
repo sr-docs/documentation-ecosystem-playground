@@ -6,6 +6,7 @@ interface ExercisePageProps {
   stage: string
   onBack: () => void
   onNavigateToStage: (stage: string) => void
+  cameFromReview: boolean
 }
 
 // --- GitHub wiring ---
@@ -653,7 +654,7 @@ function reviewStatusLabel(status: ReviewDecisionStatus): string {
   return 'Unknown'
 }
 
-export default function ExercisePage({ stage, onBack, onNavigateToStage }: ExercisePageProps) {
+export default function ExercisePage({ stage, onBack, onNavigateToStage, cameFromReview }: ExercisePageProps) {
   const [workflowStarted, setWorkflowStarted] = useState(false)
   const [statusMessage, setStatusMessage] = useState<string>('')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -724,13 +725,17 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage }: Exerc
         setWriteDraftLoading(false)
       })
 
-      fetchLatestReviewCommentInfo().then((info) => {
-        if (info.status === 'changes-requested' && info.rawComment) {
-          setWriteFeedbackComment(extractCommentBody(info.rawComment))
-        } else {
-          setWriteFeedbackComment(null)
-        }
-      })
+      if (cameFromReview) {
+        fetchLatestReviewCommentInfo().then((info) => {
+          if (info.status === 'changes-requested' && info.rawComment) {
+            setWriteFeedbackComment(extractCommentBody(info.rawComment))
+          } else {
+            setWriteFeedbackComment(null)
+          }
+        })
+      } else {
+        setWriteFeedbackComment(null)
+      }
     }
 
     if (stage === 'REVIEW' && workflowStarted) {
@@ -769,7 +774,7 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage }: Exerc
       })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage, workflowStarted])
+  }, [stage, workflowStarted, cameFromReview])
 
   if (!content) {
     return <div>Invalid stage</div>
