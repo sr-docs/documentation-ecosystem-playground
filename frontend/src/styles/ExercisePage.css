@@ -385,3 +385,10 @@
   background: #fff8e6;
   color: #7a5c00;
 }
+
+.reviewer-feedback {
+  padding: var(--space-4);
+  background: #fff8e6;
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--color-error);
+}
