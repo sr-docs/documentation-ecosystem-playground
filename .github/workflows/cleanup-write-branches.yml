@@ -23,6 +23,8 @@ jobs:
             const sevenDaysAgo = new Date();
             sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
+            const PROTECTED_BRANCHES = ['write/seed-fallback-001'];
+
             const { data: pulls } = await github.rest.pulls.list({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -32,9 +34,10 @@ jobs:
 
             for (const pr of pulls) {
               const isWritePR = pr.head.ref.startsWith('write/');
+              const isProtected = PROTECTED_BRANCHES.includes(pr.head.ref);
               const isStale = new Date(pr.created_at) < sevenDaysAgo;
 
-              if (isWritePR && isStale) {
+              if (isWritePR && !isProtected && isStale) {
                 await github.rest.pulls.update({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
