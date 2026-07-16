@@ -257,6 +257,62 @@ async function dispatchPlanComment(issueNumber: number, prUrl: string): Promise<
     throw new Error(detail.error || `Dispatch failed: ${res.status}`)
   }
 }
+
+const WRITE_REVISE_KEY = 'writeReviseMode'
+const SEED_DRAFT_PATH = 'tasks/write-instances/seed-fallback-001.md'
+const SEED_DRAFT_BRANCH = 'write/seed-fallback-001'
+
+async function dispatchUpdateWriteDraft(
+  draftContent: string,
+  onStatusUpdate: (message: string) => void
+): Promise<void> {
+  const requestId = crypto.randomUUID()
+
+  onStatusUpdate('Sending your revised draft to GitHub.')
+
+  const res = await fetch(WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      workflowFile: 'update-write-pr.yml',
+      ref: 'main',
+      inputs: { draftContent, requestId },
+    }),
+  })
+
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}))
+    throw new Error(detail.error || `Dispatch failed: ${res.status}`)
+  }
+
+  onStatusUpdate('Updating the pull request. This can take a moment.')
+
+  await pollForUpdatedDraft(draftContent, onStatusUpdate)
+}
+
+async function pollForUpdatedDraft(
+  expectedContent: string,
+  onStatusUpdate: (message: string) => void,
+  { timeoutMs = 60000, intervalMs = 3000 } = {}
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs
+  let attempt = 0
+
+  while (Date.now() < deadline) {
+    attempt += 1
+    onStatusUpdate(`Confirming the update. Attempt ${attempt}.`)
+
+    const current = await fetchSeedDraftContent()
+    if (current.trim() === expectedContent.trim()) {
+      onStatusUpdate('Draft updated.')
+      return
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, intervalMs))
+  }
+
+  throw new Error('Timed out waiting for the update to be confirmed.')
+}
 // --- end write ---
 
 // --- begin review ---
@@ -314,14 +370,11 @@ Send a POST request to /auth/logout to end your session.`
 const RELATED_REFERENCE_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/blob/main/tasks/write-instances/nimbusauth-api-reference.md`
 const SEED_PR_URL = 'https://github.com/sr-docs/documentation-ecosystem-playground/pull/28'
 const SEED_PR_NUMBER = '28'
-const SEED_DRAFT_PATH = 'tasks/write-instances/seed-fallback-001.md'
-const SEED_DRAFT_BRANCH = 'write/seed-fallback-001'
-const PUBLISH_LOCK_KEY = 'publishApprovedContent'
 
 async function fetchSeedDraftContent(): Promise<string> {
   try {
     const res = await fetch(
-      `${WORKER_URL}file?path=${encodeURIComponent(SEED_DRAFT_PATH)}&ref=${encodeURIComponent(SEED_DRAFT_BRANCH)}`,
+      `${WORKER_URL}file?path=${encodeURIComponent(SEED_DRAFT_PATH)}&ref=${encodeURIComponent(SEED_DRAFT_BRANCH)}&_=${Date.now()}`,
       { cache: 'no-store' }
     )
 
@@ -416,7 +469,12 @@ interface PublishChecks {
 
 type ReviewDecisionStatus = 'approved' | 'changes-requested' | 'not-reviewed' | 'unknown'
 
-async function fetchLatestReviewDecision(): Promise<ReviewDecisionStatus> {
+interface ReviewCommentInfo {
+  status: ReviewDecisionStatus
+  rawComment: string | null
+}
+
+async function fetchLatestReviewCommentInfo(): Promise<ReviewCommentInfo> {
   try {
     const res = await fetch(
       `${WORKER_URL}pr-comments?prNumber=${SEED_PR_NUMBER}&_=${Date.now()}`,
@@ -424,13 +482,13 @@ async function fetchLatestReviewDecision(): Promise<ReviewDecisionStatus> {
     )
 
     if (!res.ok) {
-      return 'unknown'
+      return { status: 'unknown', rawComment: null }
     }
 
     const comments = await res.json()
 
     if (!Array.isArray(comments) || comments.length === 0) {
-      return 'not-reviewed'
+      return { status: 'not-reviewed', rawComment: null }
     }
 
     const latest = comments.find((c: { body?: string }) =>
@@ -438,21 +496,26 @@ async function fetchLatestReviewDecision(): Promise<ReviewDecisionStatus> {
     )
 
     if (!latest) {
-      return 'not-reviewed'
+      return { status: 'not-reviewed', rawComment: null }
     }
 
+    let status: ReviewDecisionStatus = 'unknown'
     if (latest.body.includes('Review decision: Approved')) {
-      return 'approved'
+      status = 'approved'
+    } else if (latest.body.includes('Review decision: Changes requested')) {
+      status = 'changes-requested'
     }
 
-    if (latest.body.includes('Review decision: Changes requested')) {
-      return 'changes-requested'
-    }
-
-    return 'unknown'
+    return { status, rawComment: latest.body }
   } catch {
-    return 'unknown'
+    return { status: 'unknown', rawComment: null }
   }
+}
+
+function extractCommentBody(raw: string): string {
+  const withoutHeader = raw.replace(/\*\*Review decision:.*?\*\*\n*/, '')
+  const withoutFooter = withoutHeader.split('---')[0]
+  return withoutFooter.trim()
 }
 
 interface PublishResults {
@@ -724,6 +787,11 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage }: Exerc
 
   const [showStyleGuide, setShowStyleGuide] = useState(false)
 
+  const [writeReviseMode, setWriteReviseMode] = useState(false)
+  const [reviseDraftLoading, setReviseDraftLoading] = useState(false)
+  const [reviseFeedbackComment, setReviseFeedbackComment] = useState<string | null>(null)
+  const [reviseUpdateStatus, setReviseUpdateStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+
   const [reviewComment, setReviewComment] = useState('')
   const [reviewSubmitStatus, setReviewSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [reviewResultUrl, setReviewResultUrl] = useState<string | null>(null)
@@ -749,9 +817,6 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage }: Exerc
   const [publishResultsContent, setPublishResultsContent] = useState<string | null>(null)
   const [publishFinalDraft, setPublishFinalDraft] = useState<string | null>(null)
 
-  const [publishLockedContent, setPublishLockedContent] = useState<string | null>(null)
-  const [publishIsLocked, setPublishIsLocked] = useState(false)
-
   const [publishHistory, setPublishHistory] = useState<PublishHistoryEntry[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [observation, setObservation] = useState('')
@@ -774,6 +839,27 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage }: Exerc
   const content = getStageContent(stage)
 
   useEffect(() => {
+    if (stage === 'WRITE' && workflowStarted) {
+      const reviseFlag = sessionStorage.getItem(WRITE_REVISE_KEY)
+
+      if (reviseFlag) {
+        setWriteReviseMode(true)
+        setReviseUpdateStatus('idle')
+        setReviseDraftLoading(true)
+        fetchSeedDraftContent().then((text) => {
+          setDraftContent(text)
+          setReviseDraftLoading(false)
+        })
+        fetchLatestReviewCommentInfo().then((info) => {
+          setReviseFeedbackComment(info.rawComment ? extractCommentBody(info.rawComment) : null)
+        })
+      } else {
+        setWriteReviseMode(false)
+        setSelectedPlanIssue(null)
+        loadPlanIssues()
+      }
+    }
+
     if (stage === 'REVIEW' && workflowStarted) {
       setDraftLoading(true)
       fetchSeedDraftContent().then((text) => {
@@ -789,24 +875,15 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage }: Exerc
     }
 
     if (stage === 'PUBLISH' && workflowStarted) {
-      const locked = sessionStorage.getItem(PUBLISH_LOCK_KEY)
-
-      if (locked) {
-        setPublishDraft(locked)
-        setPublishLockedContent(locked)
-        setPublishIsLocked(true)
+      setPublishLoading(true)
+      fetchSeedDraftContent().then((text) => {
+        setPublishDraft(text)
         setPublishLoading(false)
-      } else {
-        setPublishLoading(true)
-        fetchSeedDraftContent().then((text) => {
-          setPublishDraft(text)
-          setPublishLoading(false)
-        })
-      }
+      })
 
       setReviewDecisionLoading(true)
-      fetchLatestReviewDecision().then((status) => {
-        setReviewDecisionStatus(status)
+      fetchLatestReviewCommentInfo().then((info) => {
+        setReviewDecisionStatus(info.status)
         setReviewDecisionLoading(false)
       })
     }
@@ -897,6 +974,47 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage }: Exerc
     }
   }
 
+  async function handleUpdateWriteDraft() {
+    if (draftContent.trim().length < 20) {
+      setErrorMessage('Your draft needs at least 20 characters.')
+      setReviseUpdateStatus('error')
+      return
+    }
+
+    if (draftContent.length > 2000) {
+      setErrorMessage('Keep your draft under 2,000 characters.')
+      setReviseUpdateStatus('error')
+      return
+    }
+
+    setReviseUpdateStatus('loading')
+    setErrorMessage(null)
+    setStatusMessage('')
+
+    try {
+      await dispatchUpdateWriteDraft(draftContent, setStatusMessage)
+      sessionStorage.removeItem(WRITE_REVISE_KEY)
+      setReviseUpdateStatus('success')
+      setReviewStatus('idle')
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Something went wrong.')
+      setReviseUpdateStatus('error')
+    }
+  }
+
+  async function handleRequestReviewAfterRevision() {
+    setReviewStatus('requesting')
+    setErrorMessage(null)
+
+    try {
+      await dispatchReviewRequest(Number(SEED_PR_NUMBER))
+      setReviewStatus('requested')
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Something went wrong.')
+      setReviewStatus('error')
+    }
+  }
+
   async function handleRequestReview() {
     if (!prNumber) {
       return
@@ -931,10 +1049,10 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage }: Exerc
       setReviewResultUrl(SEED_PR_URL)
       setLastReviewDecision(decision)
 
-      if (decision === 'approve') {
-        sessionStorage.setItem(PUBLISH_LOCK_KEY, liveDraftContent)
+      if (decision === 'request-changes') {
+        sessionStorage.setItem(WRITE_REVISE_KEY, 'true')
       } else {
-        sessionStorage.removeItem(PUBLISH_LOCK_KEY)
+        sessionStorage.removeItem(WRITE_REVISE_KEY)
       }
 
       setReviewSubmitStatus('success')
@@ -944,13 +1062,9 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage }: Exerc
     }
   }
 
-  function handleUnlockPublishDraft() {
-    setPublishIsLocked(false)
-  }
-
   async function handlePublish() {
     if (publishDraft.trim().length < 20) {
-      setErrorMessage('Your draft needs at least 20 characters.')
+      setErrorMessage('The draft is too short to publish.')
       setPublishSubmitStatus('error')
       return
     }
@@ -968,16 +1082,11 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage }: Exerc
     setPublishResultsContent(null)
     setPublishFinalDraft(null)
 
-    const contentModified = publishLockedContent !== null && publishDraft !== publishLockedContent
-    const effectiveReviewStatus: ReviewDecisionStatus = contentModified
-      ? 'unknown'
-      : reviewDecisionStatus ?? 'unknown'
-
     try {
       const result = await dispatchPublishWorkflow(
         publishDraft,
         publishChecks,
-        effectiveReviewStatus,
+        reviewDecisionStatus ?? 'unknown',
         setStatusMessage
       )
       setPublishRunUrl(result.runUrl)
@@ -986,8 +1095,6 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage }: Exerc
       setPublishResultsContent(results.resultsContent)
       setPublishFinalDraft(results.finalDraftContent)
       setPublishSubmitStatus('success')
-
-      sessionStorage.removeItem(PUBLISH_LOCK_KEY)
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Something went wrong.')
       setPublishSubmitStatus('error')
@@ -1026,8 +1133,6 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage }: Exerc
     }
   }
 
-  const publishContentModified = publishLockedContent !== null && publishDraft !== publishLockedContent
-
   return (
     <div className="exercise-page">
       <div className="exercise-header">
@@ -1062,9 +1167,7 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage }: Exerc
         {!content.isAvailable && (
           <section className="exercise-section">
             <h2>Coming soon</h2>
-            <p>
-              This stage's hands-on exercise isn't built yet.
-            </p>
+            <p>This stage's hands-on exercise isn't built yet.</p>
           </section>
         )}
 
@@ -1073,12 +1176,7 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage }: Exerc
             <button
               className="begin-button"
               type="button"
-              onClick={() => {
-                setWorkflowStarted(true)
-                if (stage === 'WRITE') {
-                  loadPlanIssues()
-                }
-              }}
+              onClick={() => setWorkflowStarted(true)}
             >
               Start workflow
             </button>
@@ -1178,7 +1276,107 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage }: Exerc
           </section>
         )}
 
-        {content.isAvailable && workflowStarted && stage === 'WRITE' && !selectedPlanIssue && (
+        {content.isAvailable && workflowStarted && stage === 'WRITE' && writeReviseMode && (
+          <section className="artifact-section">
+            <div className="artifact-header">
+              <h2>Revise this draft</h2>
+            </div>
+
+            <div className="artifact-card">
+              <p className="task-text">
+                A reviewer requested changes on this draft. Fix the flagged issue, then update
+                the pull request directly, no new draft, no new PR.
+              </p>
+
+              {reviseFeedbackComment && (
+                <div className="artifact-field">
+                  <label>Reviewer feedback</label>
+                  <p className="task-text reviewer-feedback">{reviseFeedbackComment}</p>
+                </div>
+              )}
+
+              <button
+                type="button"
+                className="style-guide-toggle"
+                onClick={() => setShowStyleGuide(!showStyleGuide)}
+              >
+                {showStyleGuide ? 'Hide style guide' : 'Show style guide'}
+              </button>
+
+              {showStyleGuide && (
+                <ul className="style-guide-list">
+                  {STYLE_GUIDE_RULES.map((rule, index) => (
+                    <li key={index}>{rule}</li>
+                  ))}
+                </ul>
+              )}
+
+              <div className="artifact-field">
+                <label>Draft</label>
+                {reviseDraftLoading && <p className="status-message status-loading">Loading the current draft.</p>}
+                {!reviseDraftLoading && (
+                  <textarea
+                    rows={14}
+                    value={draftContent}
+                    onChange={(e) => setDraftContent(e.target.value)}
+                  />
+                )}
+              </div>
+
+              {reviseUpdateStatus !== 'success' && (
+                <button
+                  className="submit-button"
+                  type="button"
+                  onClick={handleUpdateWriteDraft}
+                  disabled={reviseUpdateStatus === 'loading'}
+                >
+                  {reviseUpdateStatus === 'loading' ? 'Updating pull request.' : 'Update pull request'}
+                </button>
+              )}
+
+              {reviseUpdateStatus === 'loading' && statusMessage && (
+                <p className="status-message status-loading">{statusMessage}</p>
+              )}
+
+              {reviseUpdateStatus === 'success' && (
+                <div className="status-message status-success">
+                  <p>
+                    Draft updated.{' '}
+                    <a href={SEED_PR_URL} target="_blank" rel="noreferrer">
+                      View the pull request on GitHub
+                    </a>
+                  </p>
+
+                  {reviewStatus === 'idle' && (
+                    <button className="submit-button" type="button" onClick={handleRequestReviewAfterRevision}>
+                      Request review
+                    </button>
+                  )}
+
+                  {reviewStatus === 'requesting' && (
+                    <p className="status-message status-loading">Requesting review.</p>
+                  )}
+
+                  {reviewStatus === 'requested' && (
+                    <p className="status-message status-success">
+                      Review requested. A reviewer will take a look soon.
+                    </p>
+                  )}
+
+                  {reviewStatus === 'error' && errorMessage && (
+                    <p className="status-message status-error">{errorMessage}</p>
+                  )}
+                </div>
+              )}
+
+              {reviseUpdateStatus === 'error' && errorMessage && (
+                <p className="status-message status-error">{errorMessage}</p>
+              )}
+            </div>
+          </section>
+        )}
+
+        {content.isAvailable && workflowStarted && stage === 'WRITE' && !writeReviseMode && !selectedPlanIssue && (
           <section className="artifact-section">
             <div className="artifact-header">
               <h2>Choose a plan to write for</h2>
@@ -1204,7 +1402,7 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage }: Exerc
           </section>
         )}
 
-        {content.isAvailable && workflowStarted && stage === 'WRITE' && selectedPlanIssue && (
+        {content.isAvailable && workflowStarted && stage === 'WRITE' && !writeReviseMode && selectedPlanIssue && (
           <section className="artifact-section">
             <div className="artifact-header">
               <h2>Documentation draft</h2>
@@ -1453,32 +1651,31 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage }: Exerc
                 )}
               </div>
 
-              {publishIsLocked && (
-                <div className="locked-banner">
-                  <p>This is the reviewed, approved draft. It hasn't been edited since review.</p>
-                  <button type="button" className="style-guide-toggle" onClick={handleUnlockPublishDraft}>
-                    Edit anyway
+              {!reviewDecisionLoading && reviewDecisionStatus && reviewDecisionStatus !== 'approved' && (
+                <div className="modified-banner">
+                  <p>
+                    {reviewDecisionStatus === 'changes-requested'
+                      ? 'A reviewer requested changes on this draft. Publishing now will mark it as not reviewed.'
+                      : reviewDecisionStatus === 'not-reviewed'
+                      ? 'This draft has not been reviewed yet.'
+                      : 'The review status could not be confirmed.'}
+                  </p>
+                  <button
+                    type="button"
+                    className="style-guide-toggle"
+                    onClick={() =>
+                      onNavigateToStage(reviewDecisionStatus === 'changes-requested' ? 'WRITE' : 'REVIEW')
+                    }
+                  >
+                    {reviewDecisionStatus === 'changes-requested' ? 'Go to WRITE' : 'Go to REVIEW'}
                   </button>
                 </div>
               )}
 
-              {!publishIsLocked && publishContentModified && (
-                <div className="modified-banner">
-                  <p>You've edited the approved draft. Publishing now will mark this as not reviewed.</p>
-                </div>
-              )}
-
               <div className="artifact-field">
-                <label>Draft</label>
+                <label>Draft, as currently written in WRITE</label>
                 {publishLoading && <p className="status-message status-loading">Loading the draft.</p>}
-                {!publishLoading && (
-                  <textarea
-                    rows={14}
-                    value={publishDraft}
-                    onChange={(e) => setPublishDraft(e.target.value)}
-                    readOnly={publishIsLocked}
-                  />
-                )}
+                {!publishLoading && <pre className="draft-preview">{publishDraft}</pre>}
               </div>
 
               <div className="artifact-field">
