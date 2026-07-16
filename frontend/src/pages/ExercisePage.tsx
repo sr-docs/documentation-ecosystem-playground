@@ -87,9 +87,8 @@ async function findCreatedIssue(
 }
 // --- end plan ---
 
-// --- begin plan issue picker ---
-interface PlanIssue {
-  number: number
+// --- shared fixed plan info, used by WRITE, REVIEW, and PUBLISH ---
+interface FixedPlan {
   title: string
   problem: string
   audience: string
@@ -97,8 +96,7 @@ interface PlanIssue {
   successCriteria: string
 }
 
-const FALLBACK_ISSUE: PlanIssue = {
-  number: 0,
+const FIXED_PLAN: FixedPlan = {
   title: 'Authentication API Documentation',
   problem: "Users can't integrate with the authentication API because documentation doesn't exist.",
   audience: 'Developers integrating with the authentication API',
@@ -106,216 +104,12 @@ const FALLBACK_ISSUE: PlanIssue = {
   successCriteria: 'Developers can authenticate and make their first API request without support.',
 }
 
-function parsePlanIssue(issue: { number: number; title: string; body?: string }): PlanIssue | null {
-  if (!issue.body) {
-    return null
-  }
-
-  const getSection = (label: string): string => {
-    const pattern = new RegExp(`## ${label}\\s*\\n\\n([^#]+)`, 'i')
-    const match = issue.body!.match(pattern)
-    return match ? match[1].trim() : ''
-  }
-
-  return {
-    number: issue.number,
-    title: issue.title,
-    problem: getSection('Problem'),
-    audience: getSection('Audience'),
-    documentationNeeded: getSection('Documentation Needed'),
-    successCriteria: getSection('Success Criteria'),
-  }
-}
-
-async function fetchOpenPlanIssues(): Promise<PlanIssue[]> {
-  try {
-    const res = await fetch(
-      `${WORKER_URL}poll?type=issues&labels=playground,status:plan&_=${Date.now()}`,
-      { cache: 'no-store' }
-    )
-
-    if (!res.ok) {
-      return [FALLBACK_ISSUE]
-    }
-
-    const issues = await res.json()
-    const openIssues = issues.filter((issue: { state: string }) => issue.state === 'open')
-    const parsed = openIssues
-      .map(parsePlanIssue)
-      .filter((issue: PlanIssue | null): issue is PlanIssue => issue !== null)
-
-    return parsed.length > 0 ? parsed : [FALLBACK_ISSUE]
-  } catch {
-    return [FALLBACK_ISSUE]
-  }
-}
-// --- end plan issue picker ---
-
-// --- begin write ---
-interface WriteInputs {
-  title: string
-  draftContent: string
-}
-
-async function dispatchWriteWorkflow(
-  inputs: WriteInputs,
-  onStatusUpdate: (message: string) => void
-): Promise<{ url: string; number: number; draftUrl: string }> {
-  const requestId = crypto.randomUUID()
-
-  onStatusUpdate('Sending your draft to GitHub.')
-
-  const res = await fetch(WORKER_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      workflowFile: 'create-write-pr.yml',
-      ref: 'main',
-      inputs: { ...inputs, requestId },
-    }),
-  })
-
-  if (!res.ok) {
-    const detail = await res.json().catch(() => ({}))
-    throw new Error(detail.error || `Dispatch failed: ${res.status}`)
-  }
-
-  onStatusUpdate('Creating your branch and pull request. This takes longer than PLAN.')
-
-  return findCreatedPR(requestId, onStatusUpdate)
-}
-
-async function findCreatedPR(
-  requestId: string,
-  onStatusUpdate: (message: string) => void,
-  { timeoutMs = 60000, intervalMs = 3000 } = {}
-): Promise<{ url: string; number: number; draftUrl: string }> {
-  const deadline = Date.now() + timeoutMs
-  let attempt = 0
-
-  while (Date.now() < deadline) {
-    attempt += 1
-    onStatusUpdate(`Checking for your pull request. Attempt ${attempt}.`)
-
-    const res = await fetch(
-      `${WORKER_URL}poll?type=pulls&labels=status:write&_=${Date.now()}`,
-      { cache: 'no-store' }
-    )
-
-    if (res.ok) {
-      const pulls = await res.json()
-      const match = pulls.find((pr: { body?: string }) =>
-        pr.body?.includes(`request-id: ${requestId}`)
-      )
-      if (match) {
-        onStatusUpdate('Pull request found.')
-        const draftUrl = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/blob/${match.head.ref}/tasks/write-instances/${requestId}.md`
-        return { url: match.html_url, number: match.number, draftUrl }
-      }
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, intervalMs))
-  }
-
-  throw new Error('Timed out waiting for the pull request to appear.')
-}
-
-async function dispatchReviewRequest(prNumber: number): Promise<void> {
-  const res = await fetch(WORKER_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      workflowFile: 'request-write-review.yml',
-      ref: 'main',
-      inputs: { prNumber: String(prNumber) },
-    }),
-  })
-
-  if (!res.ok) {
-    const detail = await res.json().catch(() => ({}))
-    throw new Error(detail.error || `Dispatch failed: ${res.status}`)
-  }
-}
-
-async function dispatchPlanComment(issueNumber: number, prUrl: string): Promise<void> {
-  if (issueNumber === 0) {
-    return
-  }
-
-  const res = await fetch(WORKER_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      workflowFile: 'comment-on-plan-issue.yml',
-      ref: 'main',
-      inputs: { issueNumber: String(issueNumber), prUrl },
-    }),
-  })
-
-  if (!res.ok) {
-    const detail = await res.json().catch(() => ({}))
-    throw new Error(detail.error || `Dispatch failed: ${res.status}`)
-  }
-}
-
-const WRITE_REVISE_KEY = 'writeReviseMode'
 const SEED_DRAFT_PATH = 'tasks/write-instances/seed-fallback-001.md'
 const SEED_DRAFT_BRANCH = 'write/seed-fallback-001'
+const SEED_PR_URL = 'https://github.com/sr-docs/documentation-ecosystem-playground/pull/28'
+const SEED_PR_NUMBER = '28'
+const RELATED_REFERENCE_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/blob/main/tasks/write-instances/nimbusauth-api-reference.md`
 
-async function dispatchUpdateWriteDraft(
-  draftContent: string,
-  onStatusUpdate: (message: string) => void
-): Promise<void> {
-  const requestId = crypto.randomUUID()
-
-  onStatusUpdate('Sending your revised draft to GitHub.')
-
-  const res = await fetch(WORKER_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      workflowFile: 'update-write-pr.yml',
-      ref: 'main',
-      inputs: { draftContent, requestId },
-    }),
-  })
-
-  if (!res.ok) {
-    const detail = await res.json().catch(() => ({}))
-    throw new Error(detail.error || `Dispatch failed: ${res.status}`)
-  }
-
-  onStatusUpdate('Updating the pull request. This can take a moment.')
-
-  await pollForUpdatedDraft(draftContent, onStatusUpdate)
-}
-
-async function pollForUpdatedDraft(
-  expectedContent: string,
-  onStatusUpdate: (message: string) => void,
-  { timeoutMs = 60000, intervalMs = 3000 } = {}
-): Promise<void> {
-  const deadline = Date.now() + timeoutMs
-  let attempt = 0
-
-  while (Date.now() < deadline) {
-    attempt += 1
-    onStatusUpdate(`Confirming the update. Attempt ${attempt}.`)
-
-    const current = await fetchSeedDraftContent()
-    if (current.trim() === expectedContent.trim()) {
-      onStatusUpdate('Draft updated.')
-      return
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, intervalMs))
-  }
-
-  throw new Error('Timed out waiting for the update to be confirmed.')
-}
-// --- end write ---
-
-// --- begin review ---
 const SEED_DRAFT_CONTENT_FALLBACK = `# NimbusAuth Quick Start Guide
 
 Get up and running with the NimbusAuth API in a few minutes.
@@ -367,10 +161,6 @@ Access tokens expire after an hour. When yours expires, send your refresh token 
 
 Send a POST request to /auth/logout to end your session.`
 
-const RELATED_REFERENCE_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/blob/main/tasks/write-instances/nimbusauth-api-reference.md`
-const SEED_PR_URL = 'https://github.com/sr-docs/documentation-ecosystem-playground/pull/28'
-const SEED_PR_NUMBER = '28'
-
 async function fetchSeedDraftContent(): Promise<string> {
   try {
     const res = await fetch(
@@ -389,10 +179,98 @@ async function fetchSeedDraftContent(): Promise<string> {
   }
 }
 
+// --- begin write ---
+async function dispatchUpdateWriteDraft(
+  draftContent: string,
+  onStatusUpdate: (message: string) => void
+): Promise<void> {
+  const requestId = crypto.randomUUID()
+
+  onStatusUpdate('Sending your draft to GitHub.')
+
+  const res = await fetch(WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      workflowFile: 'update-write-pr.yml',
+      ref: 'main',
+      inputs: { draftContent, requestId },
+    }),
+  })
+
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}))
+    throw new Error(detail.error || `Dispatch failed: ${res.status}`)
+  }
+
+  onStatusUpdate('Updating the pull request. This can take a moment.')
+
+  await pollForUpdatedDraft(draftContent, onStatusUpdate)
+}
+
+async function pollForUpdatedDraft(
+  expectedContent: string,
+  onStatusUpdate: (message: string) => void,
+  { timeoutMs = 60000, intervalMs = 3000 } = {}
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs
+  let attempt = 0
+
+  while (Date.now() < deadline) {
+    attempt += 1
+    onStatusUpdate(`Confirming the update. Attempt ${attempt}.`)
+
+    const current = await fetchSeedDraftContent()
+    if (current.trim() === expectedContent.trim()) {
+      onStatusUpdate('Draft updated.')
+      return
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, intervalMs))
+  }
+
+  throw new Error('Timed out waiting for the update to be confirmed.')
+}
+
+async function dispatchReviewRequest(prNumber: string): Promise<void> {
+  const res = await fetch(WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      workflowFile: 'request-write-review.yml',
+      ref: 'main',
+      inputs: { prNumber },
+    }),
+  })
+
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}))
+    throw new Error(detail.error || `Dispatch failed: ${res.status}`)
+  }
+}
+// --- end write ---
+
+// --- begin review ---
 interface CheckResult {
+  id: number
   name: string
   status: string
   conclusion: string | null
+}
+
+function dedupeChecksByName(checks: CheckResult[]): CheckResult[] {
+  const sorted = [...checks].sort((a, b) => b.id - a.id)
+  const seen = new Set<string>()
+  const result: CheckResult[] = []
+
+  for (const check of sorted) {
+    if (!seen.has(check.name)) {
+      seen.add(check.name)
+      result.push(check)
+    }
+  }
+
+  return result
 }
 
 async function fetchSeedPRChecks(): Promise<CheckResult[] | null> {
@@ -423,48 +301,19 @@ async function fetchSeedPRChecks(): Promise<CheckResult[] | null> {
     }
 
     const data = await checksRes.json()
-    return (data.check_runs || []).map((run: { name: string; status: string; conclusion: string | null }) => ({
-      name: run.name,
-      status: run.status,
-      conclusion: run.conclusion,
-    }))
+    const rawChecks: CheckResult[] = (data.check_runs || []).map(
+      (run: { id: number; name: string; status: string; conclusion: string | null }) => ({
+        id: run.id,
+        name: run.name,
+        status: run.status,
+        conclusion: run.conclusion,
+      })
+    )
+
+    return dedupeChecksByName(rawChecks)
   } catch {
     return null
   }
-}
-
-async function dispatchPRReview(
-  comment: string,
-  decision: string,
-  onStatusUpdate: (message: string) => void
-): Promise<void> {
-  onStatusUpdate('Posting your review to the pull request.')
-
-  const res = await fetch(WORKER_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      workflowFile: 'submit-pr-review.yml',
-      ref: 'main',
-      inputs: { prNumber: SEED_PR_NUMBER, comment, decision },
-    }),
-  })
-
-  if (!res.ok) {
-    const detail = await res.json().catch(() => ({}))
-    throw new Error(detail.error || `Dispatch failed: ${res.status}`)
-  }
-
-  onStatusUpdate('Review posted.')
-}
-// --- end review ---
-
-// --- begin publish ---
-interface PublishChecks {
-  runLinkCheck: boolean
-  runHeadingCheck: boolean
-  runCodeBlockCheck: boolean
-  runValeCheck: boolean
 }
 
 type ReviewDecisionStatus = 'approved' | 'changes-requested' | 'not-reviewed' | 'unknown'
@@ -516,6 +365,40 @@ function extractCommentBody(raw: string): string {
   const withoutHeader = raw.replace(/\*\*Review decision:.*?\*\*\n*/, '')
   const withoutFooter = withoutHeader.split('---')[0]
   return withoutFooter.trim()
+}
+
+async function dispatchPRReview(
+  comment: string,
+  decision: string,
+  onStatusUpdate: (message: string) => void
+): Promise<void> {
+  onStatusUpdate('Posting your review to the pull request.')
+
+  const res = await fetch(WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      workflowFile: 'submit-pr-review.yml',
+      ref: 'main',
+      inputs: { prNumber: SEED_PR_NUMBER, comment, decision },
+    }),
+  })
+
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}))
+    throw new Error(detail.error || `Dispatch failed: ${res.status}`)
+  }
+
+  onStatusUpdate('Review posted.')
+}
+// --- end review ---
+
+// --- begin publish ---
+interface PublishChecks {
+  runLinkCheck: boolean
+  runHeadingCheck: boolean
+  runCodeBlockCheck: boolean
+  runValeCheck: boolean
 }
 
 interface PublishResults {
@@ -772,36 +655,39 @@ function reviewStatusLabel(status: ReviewDecisionStatus): string {
 
 export default function ExercisePage({ stage, onBack, onNavigateToStage }: ExercisePageProps) {
   const [workflowStarted, setWorkflowStarted] = useState(false)
+  const [statusMessage, setStatusMessage] = useState<string>('')
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  // PLAN
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [issueUrl, setIssueUrl] = useState<string | null>(null)
-  const [draftUrl, setDraftUrl] = useState<string | null>(null)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [statusMessage, setStatusMessage] = useState<string>('')
+  const [artifact, setArtifact] = useState({
+    title: 'Authentication API Documentation',
+    problem: 'Users cannot integrate with the authentication API because documentation does not exist.',
+    audience: 'Developers integrating with the authentication API',
+    documentationNeeded: 'Quick start guide, API reference, and three integration examples',
+    success: 'Developers can authenticate and make their first API request without support.',
+  })
 
-  const [prNumber, setPrNumber] = useState<number | null>(null)
-  const [reviewStatus, setReviewStatus] = useState<'idle' | 'requesting' | 'requested' | 'error'>('idle')
-
-  const [planIssues, setPlanIssues] = useState<PlanIssue[]>([])
-  const [selectedPlanIssue, setSelectedPlanIssue] = useState<PlanIssue | null>(null)
-  const [loadingIssues, setLoadingIssues] = useState(false)
-
+  // WRITE
   const [showStyleGuide, setShowStyleGuide] = useState(false)
+  const [writeDraft, setWriteDraft] = useState<string>(SEED_DRAFT_CONTENT_FALLBACK)
+  const [writeDraftLoading, setWriteDraftLoading] = useState(false)
+  const [writeFeedbackComment, setWriteFeedbackComment] = useState<string | null>(null)
+  const [writeUpdateStatus, setWriteUpdateStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [writeReviewRequestStatus, setWriteReviewRequestStatus] = useState<'idle' | 'requesting' | 'requested' | 'error'>('idle')
 
-  const [writeReviseMode, setWriteReviseMode] = useState(false)
-  const [reviseDraftLoading, setReviseDraftLoading] = useState(false)
-  const [reviseFeedbackComment, setReviseFeedbackComment] = useState<string | null>(null)
-  const [reviseUpdateStatus, setReviseUpdateStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
-
+  // REVIEW
   const [reviewComment, setReviewComment] = useState('')
   const [reviewSubmitStatus, setReviewSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [reviewResultUrl, setReviewResultUrl] = useState<string | null>(null)
   const [lastReviewDecision, setLastReviewDecision] = useState<'approve' | 'request-changes' | null>(null)
-
   const [liveDraftContent, setLiveDraftContent] = useState<string>(SEED_DRAFT_CONTENT_FALLBACK)
   const [draftLoading, setDraftLoading] = useState(false)
   const [checks, setChecks] = useState<CheckResult[] | null>(null)
   const [checksLoading, setChecksLoading] = useState(false)
 
+  // PUBLISH
   const [publishDraft, setPublishDraft] = useState<string>(SEED_DRAFT_CONTENT_FALLBACK)
   const [publishLoading, setPublishLoading] = useState(false)
   const [publishChecks, setPublishChecks] = useState<PublishChecks>({
@@ -817,6 +703,7 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage }: Exerc
   const [publishResultsContent, setPublishResultsContent] = useState<string | null>(null)
   const [publishFinalDraft, setPublishFinalDraft] = useState<string | null>(null)
 
+  // OBSERVE
   const [publishHistory, setPublishHistory] = useState<PublishHistoryEntry[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [observation, setObservation] = useState('')
@@ -824,40 +711,26 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage }: Exerc
   const [observeSubmitStatus, setObserveSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [observeIssueUrl, setObserveIssueUrl] = useState<string | null>(null)
 
-  const [artifact, setArtifact] = useState({
-    title: 'Authentication API Documentation',
-    problem: 'Users cannot integrate with the authentication API because documentation does not exist.',
-    audience: 'Developers integrating with the authentication API',
-    documentationNeeded: 'Quick start guide, API reference, and three integration examples',
-    success: 'Developers can authenticate and make their first API request without support.',
-  })
-
-  const [draftContent, setDraftContent] = useState(
-    'Start your draft here. Aim for at least a few sentences.'
-  )
-
   const content = getStageContent(stage)
 
   useEffect(() => {
     if (stage === 'WRITE' && workflowStarted) {
-      const reviseFlag = sessionStorage.getItem(WRITE_REVISE_KEY)
+      setWriteUpdateStatus('idle')
+      setWriteReviewRequestStatus('idle')
+      setWriteDraftLoading(true)
 
-      if (reviseFlag) {
-        setWriteReviseMode(true)
-        setReviseUpdateStatus('idle')
-        setReviseDraftLoading(true)
-        fetchSeedDraftContent().then((text) => {
-          setDraftContent(text)
-          setReviseDraftLoading(false)
-        })
-        fetchLatestReviewCommentInfo().then((info) => {
-          setReviseFeedbackComment(info.rawComment ? extractCommentBody(info.rawComment) : null)
-        })
-      } else {
-        setWriteReviseMode(false)
-        setSelectedPlanIssue(null)
-        loadPlanIssues()
-      }
+      fetchSeedDraftContent().then((text) => {
+        setWriteDraft(text)
+        setWriteDraftLoading(false)
+      })
+
+      fetchLatestReviewCommentInfo().then((info) => {
+        if (info.status === 'changes-requested' && info.rawComment) {
+          setWriteFeedbackComment(extractCommentBody(info.rawComment))
+        } else {
+          setWriteFeedbackComment(null)
+        }
+      })
     }
 
     if (stage === 'REVIEW' && workflowStarted) {
@@ -902,13 +775,6 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage }: Exerc
     return <div>Invalid stage</div>
   }
 
-  async function loadPlanIssues() {
-    setLoadingIssues(true)
-    const issues = await fetchOpenPlanIssues()
-    setPlanIssues(issues)
-    setLoadingIssues(false)
-  }
-
   async function handleCreateIssue() {
     setSubmitStatus('loading')
     setErrorMessage(null)
@@ -933,102 +799,42 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage }: Exerc
     }
   }
 
-  async function handleCreateWritePR() {
-    if (draftContent.trim().length < 20) {
-      setErrorMessage('Your draft needs at least 20 characters.')
-      setSubmitStatus('error')
-      return
-    }
-
-    if (draftContent.length > 2000) {
-      setErrorMessage('Keep your draft under 2,000 characters.')
-      setSubmitStatus('error')
-      return
-    }
-
-    setSubmitStatus('loading')
-    setErrorMessage(null)
-    setStatusMessage('')
-    setReviewStatus('idle')
-    setPrNumber(null)
-    setDraftUrl(null)
-
-    try {
-      const result = await dispatchWriteWorkflow(
-        { title: selectedPlanIssue?.title ?? 'Documentation Draft', draftContent },
-        setStatusMessage
-      )
-      setIssueUrl(result.url)
-      setDraftUrl(result.draftUrl)
-      setPrNumber(result.number)
-      setSubmitStatus('success')
-
-      if (selectedPlanIssue) {
-        dispatchPlanComment(selectedPlanIssue.number, result.url).catch(() => {
-          // A failed comment doesn't block the visitor. The draft and PR already exist.
-        })
-      }
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Something went wrong.')
-      setSubmitStatus('error')
-    }
-  }
-
   async function handleUpdateWriteDraft() {
-    if (draftContent.trim().length < 20) {
+    if (writeDraft.trim().length < 20) {
       setErrorMessage('Your draft needs at least 20 characters.')
-      setReviseUpdateStatus('error')
+      setWriteUpdateStatus('error')
       return
     }
 
-    if (draftContent.length > 2000) {
+    if (writeDraft.length > 2000) {
       setErrorMessage('Keep your draft under 2,000 characters.')
-      setReviseUpdateStatus('error')
+      setWriteUpdateStatus('error')
       return
     }
 
-    setReviseUpdateStatus('loading')
+    setWriteUpdateStatus('loading')
     setErrorMessage(null)
     setStatusMessage('')
 
     try {
-      await dispatchUpdateWriteDraft(draftContent, setStatusMessage)
-      sessionStorage.removeItem(WRITE_REVISE_KEY)
-      setReviseUpdateStatus('success')
-      setReviewStatus('idle')
+      await dispatchUpdateWriteDraft(writeDraft, setStatusMessage)
+      setWriteUpdateStatus('success')
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Something went wrong.')
-      setReviseUpdateStatus('error')
+      setWriteUpdateStatus('error')
     }
   }
 
-  async function handleRequestReviewAfterRevision() {
-    setReviewStatus('requesting')
+  async function handleRequestReviewFromWrite() {
+    setWriteReviewRequestStatus('requesting')
     setErrorMessage(null)
 
     try {
-      await dispatchReviewRequest(Number(SEED_PR_NUMBER))
-      setReviewStatus('requested')
+      await dispatchReviewRequest(SEED_PR_NUMBER)
+      setWriteReviewRequestStatus('requested')
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Something went wrong.')
-      setReviewStatus('error')
-    }
-  }
-
-  async function handleRequestReview() {
-    if (!prNumber) {
-      return
-    }
-
-    setReviewStatus('requesting')
-    setErrorMessage(null)
-
-    try {
-      await dispatchReviewRequest(prNumber)
-      setReviewStatus('requested')
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Something went wrong.')
-      setReviewStatus('error')
+      setWriteReviewRequestStatus('error')
     }
   }
 
@@ -1048,13 +854,6 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage }: Exerc
       await dispatchPRReview(reviewComment, decisionLabel, setStatusMessage)
       setReviewResultUrl(SEED_PR_URL)
       setLastReviewDecision(decision)
-
-      if (decision === 'request-changes') {
-        sessionStorage.setItem(WRITE_REVISE_KEY, 'true')
-      } else {
-        sessionStorage.removeItem(WRITE_REVISE_KEY)
-      }
-
       setReviewSubmitStatus('success')
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Something went wrong.')
@@ -1258,40 +1057,38 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage }: Exerc
               )}
 
               {submitStatus === 'error' && errorMessage && (
-                <div className="status-message status-error">
-                  <p>{errorMessage}</p>
-                  <p className="status-detail">
-                    The issue might exist even if this check failed.{' '}
-                    <a href={`https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/issues?q=is%3Aissue+label%3Aplayground+label%3Astatus%3Aplan`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Check the playground issues directly
-                    </a>
-                    .
-                  </p>
-                </div>
+                <p className="status-message status-error">{errorMessage}</p>
               )}
             </div>
           </section>
         )}
 
-        {content.isAvailable && workflowStarted && stage === 'WRITE' && writeReviseMode && (
+        {content.isAvailable && workflowStarted && stage === 'WRITE' && (
           <section className="artifact-section">
             <div className="artifact-header">
-              <h2>Revise this draft</h2>
+              <h2>Documentation draft</h2>
             </div>
 
             <div className="artifact-card">
-              <p className="task-text">
-                A reviewer requested changes on this draft. Fix the flagged issue, then update
-                the pull request directly, no new draft, no new PR.
-              </p>
+              <div className="artifact-field">
+                <label>Writing for</label>
+                <p className="task-text">{FIXED_PLAN.title}</p>
+              </div>
 
-              {reviseFeedbackComment && (
+              <div className="artifact-field">
+                <label>Problem</label>
+                <p className="task-text">{FIXED_PLAN.problem}</p>
+              </div>
+
+              <div className="artifact-field">
+                <label>Audience</label>
+                <p className="task-text">{FIXED_PLAN.audience}</p>
+              </div>
+
+              {writeFeedbackComment && (
                 <div className="artifact-field">
                   <label>Reviewer feedback</label>
-                  <p className="task-text reviewer-feedback">{reviseFeedbackComment}</p>
+                  <p className="task-text reviewer-feedback">{writeFeedbackComment}</p>
                 </div>
               )}
 
@@ -1313,192 +1110,63 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage }: Exerc
 
               <div className="artifact-field">
                 <label>Draft</label>
-                {reviseDraftLoading && <p className="status-message status-loading">Loading the current draft.</p>}
-                {!reviseDraftLoading && (
+                {writeDraftLoading && <p className="status-message status-loading">Loading the current draft.</p>}
+                {!writeDraftLoading && (
                   <textarea
                     rows={14}
-                    value={draftContent}
-                    onChange={(e) => setDraftContent(e.target.value)}
+                    value={writeDraft}
+                    onChange={(e) => setWriteDraft(e.target.value)}
                   />
                 )}
               </div>
 
-              {reviseUpdateStatus !== 'success' && (
+              {writeUpdateStatus !== 'success' && (
                 <button
                   className="submit-button"
                   type="button"
                   onClick={handleUpdateWriteDraft}
-                  disabled={reviseUpdateStatus === 'loading'}
+                  disabled={writeUpdateStatus === 'loading'}
                 >
-                  {reviseUpdateStatus === 'loading' ? 'Updating pull request.' : 'Update pull request'}
+                  {writeUpdateStatus === 'loading' ? 'Updating pull request.' : 'Save draft'}
                 </button>
               )}
 
-              {reviseUpdateStatus === 'loading' && statusMessage && (
+              {writeUpdateStatus === 'loading' && statusMessage && (
                 <p className="status-message status-loading">{statusMessage}</p>
               )}
 
-              {reviseUpdateStatus === 'success' && (
+              {writeUpdateStatus === 'success' && (
                 <div className="status-message status-success">
                   <p>
-                    Draft updated.{' '}
+                    Draft saved.{' '}
                     <a href={SEED_PR_URL} target="_blank" rel="noreferrer">
                       View the pull request on GitHub
                     </a>
                   </p>
 
-                  {reviewStatus === 'idle' && (
-                    <button className="submit-button" type="button" onClick={handleRequestReviewAfterRevision}>
+                  {writeReviewRequestStatus === 'idle' && (
+                    <button className="submit-button" type="button" onClick={handleRequestReviewFromWrite}>
                       Request review
                     </button>
                   )}
 
-                  {reviewStatus === 'requesting' && (
+                  {writeReviewRequestStatus === 'requesting' && (
                     <p className="status-message status-loading">Requesting review.</p>
                   )}
 
-                  {reviewStatus === 'requested' && (
+                  {writeReviewRequestStatus === 'requested' && (
                     <p className="status-message status-success">
                       Review requested. A reviewer will take a look soon.
                     </p>
                   )}
 
-                  {reviewStatus === 'error' && errorMessage && (
+                  {writeReviewRequestStatus === 'error' && errorMessage && (
                     <p className="status-message status-error">{errorMessage}</p>
                   )}
                 </div>
               )}
 
-              {reviseUpdateStatus === 'error' && errorMessage && (
-                <p className="status-message status-error">{errorMessage}</p>
-              )}
-            </div>
-          </section>
-        )}
-
-        {content.isAvailable && workflowStarted && stage === 'WRITE' && !writeReviseMode && !selectedPlanIssue && (
-          <section className="artifact-section">
-            <div className="artifact-header">
-              <h2>Choose a plan to write for</h2>
-            </div>
-
-            {loadingIssues && <p className="status-message status-loading">Loading plans.</p>}
-
-            {!loadingIssues && (
-              <div className="artifact-card">
-                {planIssues.map((issue) => (
-                  <button
-                    key={issue.number}
-                    type="button"
-                    className="plan-issue-option"
-                    onClick={() => setSelectedPlanIssue(issue)}
-                  >
-                    <strong>{issue.title}</strong>
-                    <p>{issue.problem}</p>
-                  </button>
-                ))}
-              </div>
-            )}
-          </section>
-        )}
-
-        {content.isAvailable && workflowStarted && stage === 'WRITE' && !writeReviseMode && selectedPlanIssue && (
-          <section className="artifact-section">
-            <div className="artifact-header">
-              <h2>Documentation draft</h2>
-            </div>
-
-            <div className="artifact-card">
-              <div className="artifact-field">
-                <label>Writing for</label>
-                <p className="task-text">{selectedPlanIssue.title}</p>
-              </div>
-
-              <div className="artifact-field">
-                <label>Problem</label>
-                <p className="task-text">{selectedPlanIssue.problem}</p>
-              </div>
-
-              <div className="artifact-field">
-                <label>Audience</label>
-                <p className="task-text">{selectedPlanIssue.audience}</p>
-              </div>
-
-              <div className="artifact-field">
-                <label>Documentation needed</label>
-                <p className="task-text">{selectedPlanIssue.documentationNeeded}</p>
-              </div>
-
-              <button
-                type="button"
-                className="style-guide-toggle"
-                onClick={() => setShowStyleGuide(!showStyleGuide)}
-              >
-                {showStyleGuide ? 'Hide style guide' : 'Show style guide'}
-              </button>
-
-              {showStyleGuide && (
-                <ul className="style-guide-list">
-                  {STYLE_GUIDE_RULES.map((rule, index) => (
-                    <li key={index}>{rule}</li>
-                  ))}
-                </ul>
-              )}
-
-              <div className="artifact-field">
-                <label>Your draft</label>
-                <textarea
-                  rows={10}
-                  value={draftContent}
-                  onChange={(e) => setDraftContent(e.target.value)}
-                />
-              </div>
-
-              <button
-                className="submit-button"
-                type="button"
-                onClick={handleCreateWritePR}
-                disabled={submitStatus === 'loading'}
-              >
-                {submitStatus === 'loading' ? 'Creating pull request.' : 'Submit draft'}
-              </button>
-
-              {submitStatus === 'loading' && statusMessage && (
-                <p className="status-message status-loading">{statusMessage}</p>
-              )}
-
-              {submitStatus === 'success' && issueUrl && (
-                <div className="status-message status-success">
-                  <p>
-                    Draft created.{' '}
-                    <a href={draftUrl ?? issueUrl} target="_blank" rel="noreferrer">
-                      View it on GitHub
-                    </a>
-                  </p>
-
-                  {reviewStatus === 'idle' && (
-                    <button className="submit-button" type="button" onClick={handleRequestReview}>
-                      Request review
-                    </button>
-                  )}
-
-                  {reviewStatus === 'requesting' && (
-                    <p className="status-message status-loading">Requesting review.</p>
-                  )}
-
-                  {reviewStatus === 'requested' && (
-                    <p className="status-message status-success">
-                      Review requested. A reviewer will take a look soon.
-                    </p>
-                  )}
-
-                  {reviewStatus === 'error' && errorMessage && (
-                    <p className="status-message status-error">{errorMessage}</p>
-                  )}
-                </div>
-              )}
-
-              {submitStatus === 'error' && errorMessage && (
+              {writeUpdateStatus === 'error' && errorMessage && (
                 <p className="status-message status-error">{errorMessage}</p>
               )}
             </div>
@@ -1514,7 +1182,7 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage }: Exerc
             <div className="artifact-card">
               <div className="artifact-field">
                 <label>Success criteria</label>
-                <p className="task-text">{FALLBACK_ISSUE.successCriteria}</p>
+                <p className="task-text">{FIXED_PLAN.successCriteria}</p>
               </div>
 
               <div className="artifact-field">
@@ -1536,8 +1204,8 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage }: Exerc
                 {checksLoading && <p className="status-message status-loading">Loading checks.</p>}
                 {!checksLoading && checks && checks.length > 0 && (
                   <ul className="checks-list">
-                    {checks.map((check, index) => (
-                      <li key={index} className={`check-item check-${checkStatusLabel(check).toLowerCase()}`}>
+                    {checks.map((check) => (
+                      <li key={check.id} className={`check-item check-${checkStatusLabel(check).toLowerCase()}`}>
                         {check.name}: {checkStatusLabel(check)}
                       </li>
                     ))}
