@@ -14,6 +14,78 @@ const WORKER_URL = 'https://doc-playground-proxy.sabitarao2025.workers.dev/'
 const GITHUB_OWNER = 'sr-docs'
 const GITHUB_REPO = 'documentation-ecosystem-playground'
 
+function getErrorMessage(err: unknown): string {
+  if (err instanceof TypeError) {
+    return "Couldn't reach GitHub. Check your connection and try again."
+  }
+  if (err instanceof Error) {
+    return err.message
+  }
+  return 'Something went wrong.'
+}
+
+// --- begin markdown rendering ---
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function renderMarkdown(raw: string): string {
+  const codeBlocks: string[] = []
+
+  let text = raw.replace(/```([\s\S]*?)```/g, (_match, code: string) => {
+    const escaped = escapeHtml(code.trim())
+    codeBlocks.push(`<pre class="md-code-block"><code>${escaped}</code></pre>`)
+    return `\u0000CODEBLOCK${codeBlocks.length - 1}\u0000`
+  })
+
+  text = escapeHtml(text)
+
+  text = text.replace(/^###### (.*)$/gm, '<h6>$1</h6>')
+  text = text.replace(/^##### (.*)$/gm, '<h5>$1</h5>')
+  text = text.replace(/^#### (.*)$/gm, '<h4>$1</h4>')
+  text = text.replace(/^### (.*)$/gm, '<h3>$1</h3>')
+  text = text.replace(/^## (.*)$/gm, '<h2>$1</h2>')
+  text = text.replace(/^# (.*)$/gm, '<h1>$1</h1>')
+
+  text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+  text = text.replace(/`([^`]+)`/g, '<code>$1</code>')
+
+  text = text.replace(/^- (.*)$/gm, '<li>$1</li>')
+  text = text.replace(/(<li>.*<\/li>\n?)+/g, (match) => `<ul>${match}</ul>`)
+
+  const blockTagPattern = /^<(h1|h2|h3|h4|h5|h6|ul|pre)/
+  const paragraphs = text.split(/\n{2,}/).map((block) => {
+    const trimmed = block.trim()
+    if (!trimmed) {
+      return ''
+    }
+    if (blockTagPattern.test(trimmed)) {
+      return trimmed
+    }
+    return `<p>${trimmed.replace(/\n/g, '<br />')}</p>`
+  })
+  text = paragraphs.join('\n')
+
+  text = text.replace(/\u0000CODEBLOCK(\d+)\u0000/g, (_match, idx: string) => codeBlocks[Number(idx)])
+
+  return text
+}
+
+function MarkdownPreview({ content }: { content: string }) {
+  return (
+    <div
+      className="markdown-preview"
+      dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
+    />
+  )
+}
+// --- end markdown rendering ---
+
 // --- begin plan ---
 interface PlanInputs {
   title: string
@@ -257,6 +329,14 @@ interface CheckResult {
   name: string
   status: string
   conclusion: string | null
+}
+
+const CHECK_NAME_LABELS: Record<string, string> = {
+  build: 'Site build check',
+}
+
+function checkDisplayName(check: CheckResult): string {
+  return CHECK_NAME_LABELS[check.name] || check.name
 }
 
 function dedupeChecksByName(checks: CheckResult[]): CheckResult[] {
@@ -533,7 +613,7 @@ async function fetchPublishHistory(): Promise<PublishHistoryEntry[]> {
       entries.slice(0, 10).map(async (entry) => {
         const resultsContent = await fetchPublishedFile(`publish-results/${entry.requestId}/results.md`)
         if (!resultsContent) {
-          return { ...entry, reviewStatus: 'Unknown', failCount: 0 }
+          return { ...entry, reviewStatus: 'unknown', failCount: 0 }
         }
 
         const statusMatch = resultsContent.match(/Review status at publish time: (.+)/)
@@ -541,7 +621,7 @@ async function fetchPublishHistory(): Promise<PublishHistoryEntry[]> {
 
         return {
           ...entry,
-          reviewStatus: statusMatch ? statusMatch[1].trim() : 'Unknown',
+          reviewStatus: statusMatch ? statusMatch[1].trim() : 'unknown',
           failCount,
         }
       })
@@ -628,6 +708,16 @@ const STYLE_GUIDE_RULES = [
   'Use a verb, not a noun phrase: say "connect," not "establish connectivity."',
 ]
 
+const STAGE_ORDER = ['PLAN', 'WRITE', 'REVIEW', 'PUBLISH', 'OBSERVE']
+
+function getStageProgressLabel(stage: string): string {
+  const index = STAGE_ORDER.indexOf(stage)
+  if (index === -1) {
+    return ''
+  }
+  return `Stage ${index + 1} of ${STAGE_ORDER.length}`
+}
+
 function checkStatusLabel(check: CheckResult): string {
   if (check.status !== 'completed') {
     return 'Running'
@@ -641,17 +731,33 @@ function checkStatusLabel(check: CheckResult): string {
   return check.conclusion || 'Unknown'
 }
 
+const KNOWN_REVIEW_STATUS_LABELS: Record<string, string> = {
+  approved: 'Approved',
+  'changes-requested': 'Changes requested',
+  'not-reviewed': 'Not yet reviewed',
+  unknown: 'Unknown',
+}
+
+function formatReviewStatusText(raw: string): string {
+  const normalized = raw.trim().toLowerCase()
+  if (KNOWN_REVIEW_STATUS_LABELS[normalized]) {
+    return KNOWN_REVIEW_STATUS_LABELS[normalized]
+  }
+  return raw
+    .replace(/-/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+function reviewStatusClassSuffix(raw: string): string {
+  const normalized = raw.trim().toLowerCase()
+  if (Object.keys(KNOWN_REVIEW_STATUS_LABELS).includes(normalized)) {
+    return normalized
+  }
+  return 'unknown'
+}
+
 function reviewStatusLabel(status: ReviewDecisionStatus): string {
-  if (status === 'approved') {
-    return 'Approved'
-  }
-  if (status === 'changes-requested') {
-    return 'Changes requested'
-  }
-  if (status === 'not-reviewed') {
-    return 'Not yet reviewed'
-  }
-  return 'Unknown'
+  return KNOWN_REVIEW_STATUS_LABELS[status]
 }
 
 export default function ExercisePage({ stage, onBack, onNavigateToStage, cameFromReview }: ExercisePageProps) {
@@ -799,7 +905,7 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage, cameFro
       setIssueUrl(result.url)
       setSubmitStatus('success')
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Something went wrong.')
+      setErrorMessage(getErrorMessage(err))
       setSubmitStatus('error')
     }
   }
@@ -825,7 +931,7 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage, cameFro
       await dispatchUpdateWriteDraft(writeDraft, setStatusMessage)
       setWriteUpdateStatus('success')
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Something went wrong.')
+      setErrorMessage(getErrorMessage(err))
       setWriteUpdateStatus('error')
     }
   }
@@ -838,7 +944,7 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage, cameFro
       await dispatchReviewRequest(SEED_PR_NUMBER)
       setWriteReviewRequestStatus('requested')
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Something went wrong.')
+      setErrorMessage(getErrorMessage(err))
       setWriteReviewRequestStatus('error')
     }
   }
@@ -861,7 +967,7 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage, cameFro
       setLastReviewDecision(decision)
       setReviewSubmitStatus('success')
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Something went wrong.')
+      setErrorMessage(getErrorMessage(err))
       setReviewSubmitStatus('error')
     }
   }
@@ -900,7 +1006,7 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage, cameFro
       setPublishFinalDraft(results.finalDraftContent)
       setPublishSubmitStatus('success')
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Something went wrong.')
+      setErrorMessage(getErrorMessage(err))
       setPublishSubmitStatus('error')
     }
   }
@@ -932,7 +1038,7 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage, cameFro
       setObserveIssueUrl(result.url)
       setObserveSubmitStatus('success')
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Something went wrong.')
+      setErrorMessage(getErrorMessage(err))
       setObserveSubmitStatus('error')
     }
   }
@@ -943,7 +1049,10 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage, cameFro
         <button className="back-button" onClick={onBack} type="button">
           Back
         </button>
-        <h1>{content.exercise.title}</h1>
+        <div>
+          <p className="stage-progress">{getStageProgressLabel(stage)}</p>
+          <h1>{content.exercise.title}</h1>
+        </div>
       </div>
 
       <div className="exercise-content">
@@ -1045,7 +1154,7 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage, cameFro
                 onClick={handleCreateIssue}
                 disabled={submitStatus === 'loading'}
               >
-                {submitStatus === 'loading' ? 'Creating issue.' : 'Create GitHub issue'}
+                {submitStatus === 'loading' ? 'Submitting plan.' : 'Submit plan'}
               </button>
 
               {submitStatus === 'loading' && statusMessage && (
@@ -1053,12 +1162,25 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage, cameFro
               )}
 
               {submitStatus === 'success' && issueUrl && (
-                <p className="status-message status-success">
-                  Issue created.{' '}
-                  <a href={issueUrl} target="_blank" rel="noreferrer">
-                    View it on GitHub
-                  </a>
-                </p>
+                <div className="status-message status-success next-step-banner">
+                  <p>
+                    Issue created.{' '}
+                    <a href={issueUrl} target="_blank" rel="noreferrer">
+                      View it on GitHub
+                    </a>
+                  </p>
+                  <p className="status-detail">
+                    WRITE currently works from one fixed example draft, not the plan you just
+                    submitted. Try WRITE to see how a draft gets reviewed and published.
+                  </p>
+                  <button
+                    className="submit-button"
+                    type="button"
+                    onClick={() => onNavigateToStage('WRITE')}
+                  >
+                    Go to WRITE
+                  </button>
+                </div>
               )}
 
               {submitStatus === 'error' && errorMessage && (
@@ -1125,16 +1247,18 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage, cameFro
                 )}
               </div>
 
-              {writeUpdateStatus !== 'success' && (
-                <button
-                  className="submit-button"
-                  type="button"
-                  onClick={handleUpdateWriteDraft}
-                  disabled={writeUpdateStatus === 'loading'}
-                >
-                  {writeUpdateStatus === 'loading' ? 'Updating pull request.' : 'Save draft'}
-                </button>
-              )}
+              <button
+                className="submit-button"
+                type="button"
+                onClick={handleUpdateWriteDraft}
+                disabled={writeUpdateStatus === 'loading'}
+              >
+                {writeUpdateStatus === 'loading'
+                  ? 'Updating pull request.'
+                  : writeUpdateStatus === 'success'
+                  ? 'Save changes'
+                  : 'Save draft'}
+              </button>
 
               {writeUpdateStatus === 'loading' && statusMessage && (
                 <p className="status-message status-loading">{statusMessage}</p>
@@ -1160,9 +1284,18 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage, cameFro
                   )}
 
                   {writeReviewRequestStatus === 'requested' && (
-                    <p className="status-message status-success">
-                      Review requested. A reviewer will take a look soon.
-                    </p>
+                    <div>
+                      <p className="status-message status-success">
+                        Review requested. A reviewer will take a look soon.
+                      </p>
+                      <button
+                        className="submit-button"
+                        type="button"
+                        onClick={() => onNavigateToStage('REVIEW')}
+                      >
+                        Go to REVIEW
+                      </button>
+                    </div>
                   )}
 
                   {writeReviewRequestStatus === 'error' && errorMessage && (
@@ -1211,7 +1344,7 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage, cameFro
                   <ul className="checks-list">
                     {checks.map((check) => (
                       <li key={check.id} className={`check-item check-${checkStatusLabel(check).toLowerCase()}`}>
-                        {check.name}: {checkStatusLabel(check)}
+                        {checkDisplayName(check)}: {checkStatusLabel(check)}
                       </li>
                     ))}
                   </ul>
@@ -1224,7 +1357,11 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage, cameFro
               <div className="artifact-field">
                 <label>Draft content</label>
                 {draftLoading && <p className="status-message status-loading">Loading the draft.</p>}
-                {!draftLoading && <pre className="draft-preview">{liveDraftContent}</pre>}
+                {!draftLoading && (
+                  <div className="draft-preview-rendered">
+                    <MarkdownPreview content={liveDraftContent} />
+                  </div>
+                )}
               </div>
 
               {reviewSubmitStatus !== 'success' && (
@@ -1318,7 +1455,7 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage, cameFro
                   <p className="status-message status-loading">Checking review status.</p>
                 )}
                 {!reviewDecisionLoading && reviewDecisionStatus && (
-                  <p className={`review-status-badge review-status-${reviewDecisionStatus}`}>
+                  <p className={`review-status-badge review-status-${reviewStatusClassSuffix(reviewDecisionStatus)}`}>
                     {reviewStatusLabel(reviewDecisionStatus)}
                   </p>
                 )}
@@ -1348,7 +1485,11 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage, cameFro
               <div className="artifact-field">
                 <label>Draft, as currently written in WRITE</label>
                 {publishLoading && <p className="status-message status-loading">Loading the draft.</p>}
-                {!publishLoading && <pre className="draft-preview">{publishDraft}</pre>}
+                {!publishLoading && (
+                  <div className="draft-preview-rendered">
+                    <MarkdownPreview content={publishDraft} />
+                  </div>
+                )}
               </div>
 
               <div className="artifact-field">
@@ -1416,13 +1557,17 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage, cameFro
 
                   <div className="artifact-field">
                     <label>Check results</label>
-                    <pre className="draft-preview">{publishResultsContent}</pre>
+                    <div className="draft-preview-rendered">
+                      <MarkdownPreview content={publishResultsContent} />
+                    </div>
                   </div>
 
                   {publishFinalDraft && (
                     <div className="artifact-field">
                       <label>Published content</label>
-                      <pre className="draft-preview">{publishFinalDraft}</pre>
+                      <div className="draft-preview-rendered">
+                        <MarkdownPreview content={publishFinalDraft} />
+                      </div>
                     </div>
                   )}
 
@@ -1464,8 +1609,10 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage, cameFro
                     <li key={index} className="history-item">
                       <div>
                         <strong>{new Date(entry.date).toLocaleString()}</strong>
-                        <span className={`review-status-badge review-status-${entry.reviewStatus.toLowerCase().replace(/ /g, '-')}`}>
-                          {' '}{entry.reviewStatus}
+                        <span
+                          className={`review-status-badge review-status-${reviewStatusClassSuffix(entry.reviewStatus)}`}
+                        >
+                          {' '}{formatReviewStatusText(entry.reviewStatus)}
                         </span>
                       </div>
                       <p className="task-text">
