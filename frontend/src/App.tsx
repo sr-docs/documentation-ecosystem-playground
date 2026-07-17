@@ -12,8 +12,8 @@ function App() {
     setExerciseStage(stage)
   }
 
-  const handleNavigateFromReview = (stage: string) => {
-    setCameFromReview(stage === 'WRITE')
+  const handleNavigateToStage = (stage: string, fromReviewFeedback?: boolean) => {
+    setCameFromReview(!!fromReviewFeedback)
     setExerciseStage(stage)
   }
 
@@ -27,7 +27,7 @@ function App() {
       <ExercisePage
         stage={exerciseStage}
         onBack={handleBackFromExercise}
-        onNavigateToStage={handleNavigateFromReview}
+        onNavigateToStage={handleNavigateToStage}
         cameFromReview={cameFromReview}
       />
     )
