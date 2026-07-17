@@ -49,14 +49,14 @@ export const stages: StageContent[] = [
     exercise: {
       title: 'Documentation Writing Scenario',
       scenario:
-        'The plan is approved. Your team decided to write a quick start guide, an API reference, and three integration examples. You\'re assigned the quick start guide.',
+        'A quick start guide already exists in the pull request below. It has a mistake: an instruction that doesn\'t match its own example. Read it closely.',
       task:
-        'Outline and draft a quick start guide that gets developers up and running in 10 minutes. Think about the minimal setup needed, and what a realistic first example looks like.',
+        'Find and fix the problem in the draft. Save your changes, then request a review when you\'re ready.',
       keyDecisions: [
-        'Choose between code examples and interactive tutorials',
-        'Decide what to include now and what to defer to deeper documentation',
-        'Organize the content for clarity',
-        'Plan for readers at different skill levels',
+        'Check every instruction against its own example',
+        'Decide what else, if anything, needs tightening',
+        'Keep the fix scoped to what\'s actually wrong',
+        'Save your changes before requesting a review',
       ],
     },
   },
@@ -81,52 +81,52 @@ export const stages: StageContent[] = [
       ],
     },
   },
-{
-  id: 'PUBLISH',
-  label: 'PUBLISH',
-  whatHappens: ['Documentation is built.', 'Changes are deployed.', 'Content becomes available.'],
-  githubImplementation: 'GitHub Actions',
-  artifacts: ['Successful build', 'Deployment result'],
-  isAvailable: true,
-  exercise: {
-    title: 'Documentation Publishing Scenario',
-    scenario:
-      'The quick start guide is ready to check. Publishing isn\'t a single click. Automation runs checks against the content, and only publishes what passes.',
-    task:
-      'Edit the draft below if you want to. Choose which checks to run, then publish. If a check fails, fix the draft and run it again.',
-    keyDecisions: [
-      'Decide what to validate before publishing: links, headings, code formatting, style',
-      'Read the check results and decide what to fix first',
-      'Think through a rollback plan if something breaks after deployment',
-      'Decide what you\'d monitor after publishing',
-    ],
-  },
-},
   {
-  id: 'OBSERVE',
-  label: 'OBSERVE',
-  whatHappens: [
-    'Documentation performance is evaluated.',
-    'Improvements are identified.',
-    'Future work is planned.',
-  ],
-  githubImplementation: 'Issues and Iteration',
-  artifacts: ['Improvement opportunities', 'Follow-up work'],
-  isAvailable: true,
-  exercise: {
-    title: 'Documentation Observation Scenario',
-    scenario:
-      'Every time someone runs PUBLISH, the result is saved. Below is the real history: what was published, whether it was reviewed first, and what the checks found.',
-    task:
-      'Look through the real publish history. Decide what it tells you. Then file an issue describing what you observed and what should happen next.',
-    keyDecisions: [
-      'Look for patterns: repeated failures, unreviewed publishes, missing checks',
-      'Decide what\'s worth fixing versus what\'s a one-time issue',
-      'Write an observation specific enough to act on',
-      'Recommend a next step: a new plan, a process change, or nothing yet',
-    ],
+    id: 'PUBLISH',
+    label: 'PUBLISH',
+    whatHappens: ['Documentation is built.', 'Changes are deployed.', 'Content becomes available.'],
+    githubImplementation: 'GitHub Actions',
+    artifacts: ['Successful build', 'Deployment result'],
+    isAvailable: true,
+    exercise: {
+      title: 'Documentation Publishing Scenario',
+      scenario:
+        'Publishing isn\'t a single click. Below is the current draft, exactly as it stands in WRITE right now, along with its review status. Automation checks it before it goes live.',
+      task:
+        'Review the draft and its review status. Choose which checks to run, then publish. If the draft isn\'t approved yet, go back and fix it first, the checks will tell you why.',
+      keyDecisions: [
+        'Decide what\'s worth validating before publishing: links, headings, code formatting, style',
+        'Notice whether this draft has actually been reviewed',
+        'Read the check results and decide what to fix first',
+        'Think through what you\'d monitor after publishing',
+      ],
+    },
   },
-},
+  {
+    id: 'OBSERVE',
+    label: 'OBSERVE',
+    whatHappens: [
+      'Documentation performance is evaluated.',
+      'Improvements are identified.',
+      'Future work is planned.',
+    ],
+    githubImplementation: 'Issues and Iteration',
+    artifacts: ['Improvement opportunities', 'Follow-up work'],
+    isAvailable: true,
+    exercise: {
+      title: 'Documentation Observation Scenario',
+      scenario:
+        'Every time someone runs PUBLISH, the result is saved. Below is the real history: what was published, whether it was reviewed first, and what the checks found.',
+      task:
+        'Look through the real publish history. Decide what it tells you. Then file an issue describing what you observed and what should happen next.',
+      keyDecisions: [
+        'Look for patterns: repeated failures, unreviewed publishes, missing checks',
+        'Decide what\'s worth fixing versus what\'s a one-time issue',
+        'Write an observation specific enough to act on',
+        'Recommend a next step: a new plan, a process change, or nothing yet',
+      ],
+    },
+  },
 ]
 
 export function getStageContent(stageId: string): StageContent | undefined {
