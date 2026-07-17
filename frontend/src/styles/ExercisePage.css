@@ -14,6 +14,15 @@
   margin-bottom: var(--space-8);
 }
 
+.stage-progress {
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  margin: 0 0 var(--space-1) 0;
+}
+
 .back-button {
   padding: var(--space-2) var(--space-4);
   background-color: var(--color-surface);
@@ -90,16 +99,6 @@
   margin-bottom: var(--space-4);
 }
 
-.artifact-badge {
-  background: var(--color-accent-soft);
-  color: var(--color-accent);
-  padding: var(--space-1) var(--space-3);
-  border-radius: 999px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  font-family: var(--font-mono);
-}
-
 .artifact-card {
   display: flex;
   flex-direction: column;
@@ -157,24 +156,6 @@
   margin-top: var(--space-1);
 }
 
-/* Plan issue picker (WRITE) */
-
-.plan-issue-option {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: var(--space-4);
-  margin-bottom: var(--space-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
-  cursor: pointer;
-}
-
-.plan-issue-option:hover {
-  border-color: var(--color-accent);
-}
-
 /* Style guide panel (WRITE) */
 
 .style-guide-toggle {
@@ -212,19 +193,74 @@
   margin-right: var(--space-2);
 }
 
-/* Draft and results preview (REVIEW, PUBLISH) */
+/* Reviewer feedback (WRITE) */
 
-.draft-preview {
-  white-space: pre-wrap;
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
-  line-height: 1.6;
+.reviewer-feedback {
+  padding: var(--space-4);
+  background: #fff8e6;
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--color-error);
+}
+
+/* Rendered draft and results content (REVIEW, PUBLISH) */
+
+.draft-preview-rendered {
   padding: var(--space-4);
   background: var(--color-paper);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   max-height: 400px;
   overflow-y: auto;
+}
+
+.markdown-preview h1,
+.markdown-preview h2,
+.markdown-preview h3,
+.markdown-preview h4,
+.markdown-preview h5,
+.markdown-preview h6 {
+  margin-top: var(--space-4);
+  margin-bottom: var(--space-2);
+}
+
+.markdown-preview h1:first-child,
+.markdown-preview h2:first-child,
+.markdown-preview h3:first-child {
+  margin-top: 0;
+}
+
+.markdown-preview p {
+  margin: 0 0 var(--space-3) 0;
+  line-height: 1.6;
+}
+
+.markdown-preview ul {
+  padding-left: var(--space-6);
+  margin: 0 0 var(--space-3) 0;
+}
+
+.markdown-preview code {
+  font-family: var(--font-mono);
+  background: var(--color-accent-soft);
+  padding: 0 4px;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+.markdown-preview pre.md-code-block {
+  background: var(--color-ink);
+  color: #fff;
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  margin: 0 0 var(--space-3) 0;
+}
+
+.markdown-preview pre.md-code-block code {
+  background: none;
+  color: inherit;
+  padding: 0;
+  font-size: 0.85rem;
 }
 
 /* Review decision buttons (REVIEW) */
@@ -246,12 +282,6 @@
 
 .decision-button:hover {
   border-color: var(--color-accent);
-}
-
-.decision-button.selected {
-  border-color: var(--color-accent);
-  background: var(--color-accent-soft);
-  color: var(--color-accent);
 }
 
 /* CI check results (REVIEW) */
@@ -282,21 +312,6 @@
 .check-running {
   background: var(--color-paper);
   color: var(--color-muted);
-}
-
-/* PUBLISH walkthrough glossary */
-
-.glossary-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.glossary-list li {
-  font-size: 0.9rem;
-  line-height: 1.6;
-  color: var(--color-ink);
-  margin-bottom: var(--space-2);
 }
 
 /* PUBLISH check selection */
@@ -341,6 +356,27 @@
   color: var(--color-muted);
 }
 
+/* PUBLISH banners */
+
+.next-step-banner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+
+.modified-banner {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  background: #fff8e6;
+  color: #7a5c00;
+}
+
 /* Publish history (OBSERVE) */
 
 .history-list {
@@ -356,39 +392,4 @@
 
 .history-item:last-child {
   border-bottom: none;
-}
-
-.next-step-banner {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  align-items: flex-start;
-}
-
-.locked-banner,
-.modified-banner {
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-sm);
-  font-size: 0.9rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.locked-banner {
-  background: var(--color-accent-soft);
-  color: var(--color-ink);
-}
-
-.modified-banner {
-  background: #fff8e6;
-  color: #7a5c00;
-}
-
-.reviewer-feedback {
-  padding: var(--space-4);
-  background: #fff8e6;
-  border-radius: var(--radius-sm);
-  border-left: 3px solid var(--color-error);
 }
