@@ -181,7 +181,12 @@ jobs:
         run: |
           echo "## Vale style check" >> results.md
           if [ "$VALE_INSTALLED" = "true" ]; then
-            vale --config=.vale.ini "$DRAFT_PATH" >> results.md 2>&1 || true
+            VALE_OUTPUT=$(vale --config=.vale.ini "$DRAFT_PATH" 2>&1) || true
+            if [ -z "$VALE_OUTPUT" ]; then
+              echo "No style issues found." >> results.md
+            else
+              echo "$VALE_OUTPUT" >> results.md
+            fi
           else
             echo "Vale could not be installed for this run. This check was skipped." >> results.md
           fi
