@@ -1575,20 +1575,22 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage, cameFro
                   )}
 
                   {publishRunUrl && (
-  <p className="status-detail">
-    <a href={publishRunUrl} target="_blank" rel="noreferrer">
-      View the full workflow run on GitHub
-    </a>
-  </p>
-)}
+                    <p className="status-detail">
+                      <a href={publishRunUrl} target="_blank" rel="noreferrer">
+                        View the full workflow run on GitHub
+                      </a>
+                    </p>
+                  )}
 
-<button
-  className="submit-button"
-  type="button"
-  onClick={() => onNavigateToStage('OBSERVE')}
->
-  Go to OBSERVE
-</button>
+                  <button
+                    className="submit-button"
+                    type="button"
+                    onClick={() => onNavigateToStage('OBSERVE')}
+                  >
+                    Go to OBSERVE
+                  </button>
+                </div>
+              )}
 
               {publishSubmitStatus === 'error' && errorMessage && (
                 <p className="status-message status-error">{errorMessage}</p>
