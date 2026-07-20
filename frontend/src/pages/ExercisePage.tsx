@@ -5,7 +5,7 @@ import '../styles/ExercisePage.css'
 interface ExercisePageProps {
   stage: string
   onBack: () => void
-  onNavigateToStage: (stage: string) => void
+  onNavigateToStage: (stage: string, fromReviewFeedback?: boolean) => void
   cameFromReview: boolean
 }
 
@@ -1426,12 +1426,12 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage, cameFro
                   </p>
                   <p>The draft is back in WRITE. A writer needs to address this feedback.</p>
                   <button
-                    className="submit-button"
-                    type="button"
-                    onClick={() => onNavigateToStage('WRITE')}
-                  >
-                    Go to WRITE
-                  </button>
+  className="submit-button"
+  type="button"
+  onClick={() => onNavigateToStage('WRITE', true)}
+>
+  Go to WRITE
+</button>
                 </div>
               )}
 
@@ -1471,14 +1471,17 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage, cameFro
                       : 'The review status could not be confirmed.'}
                   </p>
                   <button
-                    type="button"
-                    className="style-guide-toggle"
-                    onClick={() =>
-                      onNavigateToStage(reviewDecisionStatus === 'changes-requested' ? 'WRITE' : 'REVIEW')
-                    }
-                  >
-                    {reviewDecisionStatus === 'changes-requested' ? 'Go to WRITE' : 'Go to REVIEW'}
-                  </button>
+  type="button"
+  className="style-guide-toggle"
+  onClick={() =>
+    onNavigateToStage(
+      reviewDecisionStatus === 'changes-requested' ? 'WRITE' : 'REVIEW',
+      reviewDecisionStatus === 'changes-requested'
+    )
+  }
+>
+  {reviewDecisionStatus === 'changes-requested' ? 'Go to WRITE' : 'Go to REVIEW'}
+</button>
                 </div>
               )}
 
@@ -1572,14 +1575,20 @@ export default function ExercisePage({ stage, onBack, onNavigateToStage, cameFro
                   )}
 
                   {publishRunUrl && (
-                    <p className="status-detail">
-                      <a href={publishRunUrl} target="_blank" rel="noreferrer">
-                        View the full workflow run on GitHub
-                      </a>
-                    </p>
-                  )}
-                </div>
-              )}
+  <p className="status-detail">
+    <a href={publishRunUrl} target="_blank" rel="noreferrer">
+      View the full workflow run on GitHub
+    </a>
+  </p>
+)}
+
+<button
+  className="submit-button"
+  type="button"
+  onClick={() => onNavigateToStage('OBSERVE')}
+>
+  Go to OBSERVE
+</button>
 
               {publishSubmitStatus === 'error' && errorMessage && (
                 <p className="status-message status-error">{errorMessage}</p>
