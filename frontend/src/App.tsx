@@ -7,8 +7,10 @@ function App() {
   const [cameFromReview, setCameFromReview] = useState(false)
 
   const handleSelectStage = (stage: string | null) => {
-    setSelectedStage(stage)
-  }
+  setSelectedStage(stage)
+  setTryingStage(null)
+  setCameFromReview(false)
+}
 
   const handleTryStage = (stage: string) => {
     setCameFromReview(false)
