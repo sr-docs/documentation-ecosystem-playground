@@ -634,8 +634,7 @@ async function fetchPublishHistory(): Promise<PublishHistoryEntry[]> {
 
 async function dispatchObserveIssue(
   title: string,
-  observation: string,
-  recommendation: string,
+  notes: string,
   onStatusUpdate: (message: string) => void
 ): Promise<{ url: string; number: number }> {
   const requestId = crypto.randomUUID()
@@ -648,7 +647,7 @@ async function dispatchObserveIssue(
     body: JSON.stringify({
       workflowFile: 'create-observe-issue.yml',
       ref: 'main',
-      inputs: { title, observation, recommendation, requestId },
+      inputs: { title, notes, requestId },
     }),
   })
 
@@ -801,10 +800,9 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
   // OBSERVE
   const [publishHistory, setPublishHistory] = useState<PublishHistoryEntry[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
-  const [observation, setObservation] = useState('')
-  const [recommendation, setRecommendation] = useState('')
-  const [observeSubmitStatus, setObserveSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
-  const [observeIssueUrl, setObserveIssueUrl] = useState<string | null>(null)
+  const [observationNotes, setObservationNotes] = useState('')
+const [observeSubmitStatus, setObserveSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+const [observeIssueUrl, setObserveIssueUrl] = useState<string | null>(null)
 
   const content = getStageContent(stage)
 
@@ -1000,36 +998,29 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
   }
 
   async function handleSubmitObservation() {
-    if (observation.trim().length < 10) {
-      setErrorMessage('Add a bit more detail to your observation.')
-      setObserveSubmitStatus('error')
-      return
-    }
-
-    if (recommendation.trim().length < 10) {
-      setErrorMessage('Add a bit more detail to your recommendation.')
-      setObserveSubmitStatus('error')
-      return
-    }
-
-    setObserveSubmitStatus('loading')
-    setErrorMessage(null)
-    setStatusMessage('')
-
-    try {
-      const result = await dispatchObserveIssue(
-        'Documentation observation: NimbusAuth quick start',
-        observation,
-        recommendation,
-        setStatusMessage
-      )
-      setObserveIssueUrl(result.url)
-      setObserveSubmitStatus('success')
-    } catch (err) {
-      setErrorMessage(getErrorMessage(err))
-      setObserveSubmitStatus('error')
-    }
+  if (observationNotes.trim().length < 15) {
+    setErrorMessage('Add a bit more detail: what you noticed, and what should happen next.')
+    setObserveSubmitStatus('error')
+    return
   }
+
+  setObserveSubmitStatus('loading')
+  setErrorMessage(null)
+  setStatusMessage('')
+
+  try {
+    const result = await dispatchObserveIssue(
+      'Documentation observation: NimbusAuth quick start',
+      observationNotes,
+      setStatusMessage
+    )
+    setObserveIssueUrl(result.url)
+    setObserveSubmitStatus('success')
+  } catch (err) {
+    setErrorMessage(getErrorMessage(err))
+    setObserveSubmitStatus('error')
+  }
+}
 
   return (
     <div className="exercise-content-wrapper">
@@ -1595,24 +1586,14 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
             )}
 
             <div className="artifact-field">
-              <label>What did you observe</label>
-              <textarea
-                rows={4}
-                value={observation}
-                onChange={(e) => setObservation(e.target.value)}
-                placeholder="What pattern or issue do you see in the history above?"
-              />
-            </div>
-
-            <div className="artifact-field">
-              <label>What should happen next</label>
-              <textarea
-                rows={4}
-                value={recommendation}
-                onChange={(e) => setRecommendation(e.target.value)}
-                placeholder="What would you recommend doing about it?"
-              />
-            </div>
+  <label>Your observation</label>
+  <textarea
+    rows={5}
+    value={observationNotes}
+    onChange={(e) => setObservationNotes(e.target.value)}
+    placeholder="What pattern or issue do you see in the history above, and what should happen next?"
+  />
+</div>
 
             <button
               className="submit-button"
