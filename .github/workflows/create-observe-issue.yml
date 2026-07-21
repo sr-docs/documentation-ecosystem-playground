@@ -7,12 +7,8 @@ on:
         description: "Issue title"
         required: true
         type: string
-      observation:
-        description: "What was observed"
-        required: true
-        type: string
-      recommendation:
-        description: "What should happen next"
+      notes:
+        description: "Observation and recommended next step"
         required: true
         type: string
       requestId:
@@ -35,13 +31,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TITLE: ${{ github.event.inputs.title }}
-          OBSERVATION: ${{ github.event.inputs.observation }}
-          RECOMMENDATION: ${{ github.event.inputs.recommendation }}
+          NOTES: ${{ github.event.inputs.notes }}
           REQUEST_ID: ${{ github.event.inputs.requestId }}
         run: |
           {
-            printf '## Observation\n\n%s\n\n' "$OBSERVATION"
-            printf '## Recommendation\n\n%s\n\n' "$RECOMMENDATION"
+            printf '## Observation\n\n%s\n\n' "$NOTES"
             printf -- '---\n\n'
             printf 'Generated from the Documentation Ecosystem Playground.\n\n'
             printf '<!-- request-id: %s -->\n' "$REQUEST_ID"
