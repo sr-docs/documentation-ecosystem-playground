@@ -51,11 +51,10 @@ const INPUT_RULES = {
     requestId: 'uuid',
   },
   'create-observe-issue.yml': {
-    title: 200,
-    observation: 2000,
-    recommendation: 2000,
-    requestId: 'uuid',
-  },
+  title: 200,
+  notes: 3000,
+  requestId: 'uuid',
+},
   'update-write-pr.yml': {
     draftContent: 2000,
     requestId: 'uuid',
