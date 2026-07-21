@@ -393,3 +393,12 @@
 .history-item:last-child {
   border-bottom: none;
 }
+
+.exercise-content-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  max-width: 900px;
+  margin: var(--space-8) auto 0 auto;
+  padding: 0 var(--space-4);
+}
