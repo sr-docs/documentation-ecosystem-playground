@@ -1,39 +1,37 @@
 import { useState } from 'react'
 import HomePage from './pages/HomePage'
-import ExercisePage from './pages/ExercisePage'
 
 function App() {
   const [selectedStage, setSelectedStage] = useState<string | null>(null)
-  const [exerciseStage, setExerciseStage] = useState<string | null>(null)
+  const [tryingStage, setTryingStage] = useState<string | null>(null)
   const [cameFromReview, setCameFromReview] = useState(false)
+
+  const handleSelectStage = (stage: string | null) => {
+    setSelectedStage(stage)
+  }
 
   const handleTryStage = (stage: string) => {
     setCameFromReview(false)
-    setExerciseStage(stage)
+    setSelectedStage(stage)
+    setTryingStage(stage)
   }
 
   const handleNavigateToStage = (stage: string, fromReviewFeedback?: boolean) => {
     setCameFromReview(!!fromReviewFeedback)
-    setExerciseStage(stage)
+    setSelectedStage(stage)
+    setTryingStage(stage)
   }
 
-  const handleBackFromExercise = () => {
-    setCameFromReview(false)
-    setExerciseStage(null)
-  }
-
-  if (exerciseStage) {
-    return (
-      <ExercisePage
-        stage={exerciseStage}
-        onBack={handleBackFromExercise}
-        onNavigateToStage={handleNavigateToStage}
-        cameFromReview={cameFromReview}
-      />
-    )
-  }
-
-  return <HomePage selectedStage={selectedStage} onSelectStage={setSelectedStage} onTryStage={handleTryStage} />
+  return (
+    <HomePage
+      selectedStage={selectedStage}
+      onSelectStage={handleSelectStage}
+      tryingStage={tryingStage}
+      onTryStage={handleTryStage}
+      onNavigateToStage={handleNavigateToStage}
+      cameFromReview={cameFromReview}
+    />
+  )
 }
 
 export default App
