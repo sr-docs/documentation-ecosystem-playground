@@ -26,6 +26,11 @@ on:
         required: true
         type: boolean
         default: false
+      runConsistencyCheck:
+        description: "Run instruction consistency check"
+        required: true
+        type: boolean
+        default: false
       runValeCheck:
         description: "Run Vale style check"
         required: true
@@ -115,6 +120,29 @@ jobs:
             echo "- PASS: all code fences are closed ($COUNT fence markers)." >> results.md
           else
             echo "- FAIL: an odd number of code fence markers was found ($COUNT). A code block may be unclosed." >> results.md
+          fi
+          echo "" >> results.md
+
+      - name: Instruction consistency check
+        if: ${{ github.event.inputs.runConsistencyCheck == 'true' }}
+        run: |
+          echo "## Instruction consistency check" >> results.md
+          FAILED=0
+          for PATH_FRAG in "/auth/login" "/auth/me" "/auth/refresh" "/auth/logout"; do
+            STATED=$(grep -oE "Send an? (GET|POST|PUT|DELETE) request to \`?${PATH_FRAG}" "$DRAFT_PATH" | grep -oE "GET|POST|PUT|DELETE" | head -n1)
+            ACTUAL=$(grep -oE "^(GET|POST|PUT|DELETE) https://[^ ]*${PATH_FRAG}" "$DRAFT_PATH" | grep -oE "^(GET|POST|PUT|DELETE)" | head -n1)
+            if [ -n "$STATED" ] && [ -n "$ACTUAL" ]; then
+              if [ "$STATED" = "$ACTUAL" ]; then
+                echo "- PASS: $PATH_FRAG instruction ($STATED) matches its example." >> results.md
+              else
+                echo "- FAIL: $PATH_FRAG instruction says $STATED, but the example shows $ACTUAL." >> results.md
+                FAILED=1
+              fi
+            fi
+          done
+          if [ "$FAILED" -eq 0 ]; then
+            echo "" >> results.md
+            echo "All instructions match their examples." >> results.md
           fi
           echo "" >> results.md
 
