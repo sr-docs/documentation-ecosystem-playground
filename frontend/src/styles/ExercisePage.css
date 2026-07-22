@@ -319,15 +319,64 @@
 .checkbox-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
 }
 
 .checkbox-row {
   display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: 0.95rem;
+  align-items: flex-start;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-4);
   cursor: pointer;
+  border-bottom: 1px solid var(--color-border);
+  transition: background-color 0.15s ease;
+}
+
+.checkbox-row:last-child {
+  border-bottom: none;
+}
+
+.checkbox-row:hover {
+  background-color: var(--color-paper);
+}
+
+.checkbox-row-active {
+  background-color: var(--color-accent-soft);
+}
+
+.checkbox-row-active:hover {
+  background-color: var(--color-accent-soft);
+}
+
+.checkbox-row input[type="checkbox"] {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0 0;
+  cursor: pointer;
+  accent-color: var(--color-accent);
+}
+
+.checkbox-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  text-align: left;
+}
+
+.checkbox-row-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--color-ink);
+}
+
+.checkbox-row-description {
+  font-size: 0.85rem;
+  color: var(--color-muted);
+  line-height: 1.4;
 }
 
 /* Review status badge (PUBLISH, OBSERVE) */
