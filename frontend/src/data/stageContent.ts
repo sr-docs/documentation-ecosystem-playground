@@ -1,6 +1,7 @@
 export interface StageContent {
   id: string
   label: string
+  outcomeLabel: string
   whatHappens: string[]
   githubImplementation: string
   artifacts: string[]
@@ -17,6 +18,7 @@ export const stages: StageContent[] = [
   {
     id: 'PLAN',
     label: 'PLAN',
+    outcomeLabel: 'Define the ask',
     whatHappens: [
       'A documentation need is identified.',
       'Scope is defined.',
@@ -41,6 +43,7 @@ export const stages: StageContent[] = [
   {
     id: 'WRITE',
     label: 'WRITE',
+    outcomeLabel: 'Draft it',
     whatHappens: ['Content is drafted.', 'Information is organized.', 'Documentation takes shape.'],
     githubImplementation: 'Branch + Commits',
     artifacts: ['Draft documentation', 'Structured content'],
@@ -61,6 +64,7 @@ export const stages: StageContent[] = [
   {
     id: 'REVIEW',
     label: 'REVIEW',
+    outcomeLabel: 'Check it',
     whatHappens: ['Content is evaluated.', 'Feedback is provided.', 'Quality is improved.'],
     githubImplementation: 'Pull Request',
     artifacts: ['Review comments', 'Approval decisions'],
@@ -82,6 +86,7 @@ export const stages: StageContent[] = [
   {
     id: 'PUBLISH',
     label: 'PUBLISH',
+    outcomeLabel: 'Ship it',
     whatHappens: ['Documentation is built.', 'Changes are deployed.', 'Content becomes available.'],
     githubImplementation: 'GitHub Actions',
     artifacts: ['Successful build', 'Deployment result'],
@@ -103,6 +108,7 @@ export const stages: StageContent[] = [
   {
     id: 'OBSERVE',
     label: 'OBSERVE',
+    outcomeLabel: 'Learn from it',
     whatHappens: [
       'Documentation performance is evaluated.',
       'Improvements are identified.',
