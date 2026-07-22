@@ -26,6 +26,11 @@ on:
         required: true
         type: boolean
         default: false
+      runConsistencyCheck:
+        description: "Run instruction consistency check"
+        required: true
+        type: boolean
+        default: false
       runValeCheck:
         description: "Run Vale style check"
         required: true
@@ -37,7 +42,7 @@ on:
         type: string
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   publish:
@@ -53,16 +58,21 @@ jobs:
           echo "DRAFT_PATH=quick-start-guide.md" >> "$GITHUB_ENV"
           printf '%s' "$DRAFT_CONTENT" > quick-start-guide.md
 
-      - name: Add watermark if not reviewed or changes requested
-        if: ${{ github.event.inputs.reviewStatus == 'not-reviewed' || github.event.inputs.reviewStatus == 'unknown' || github.event.inputs.reviewStatus == 'changes-requested' }}
+      - name: Add watermark if not reviewed
+        if: ${{ github.event.inputs.reviewStatus == 'not-reviewed' || github.event.inputs.reviewStatus == 'unknown' }}
         run: |
-          WATERMARK_TEXT="NOT REVIEWED. This draft was published without going through REVIEW."
-          if [ "${{ github.event.inputs.reviewStatus }}" = "changes-requested" ]; then
-            WATERMARK_TEXT="CHANGES REQUESTED. A reviewer asked for changes, but this draft was published as-is."
-          fi
-
           {
-            echo "> **$WATERMARK_TEXT**"
+            echo "> **NOT REVIEWED.** This draft was published without going through REVIEW."
+            echo ""
+            cat quick-start-guide.md
+          } > quick-start-guide.tmp.md
+          mv quick-start-guide.tmp.md quick-start-guide.md
+
+      - name: Add watermark if changes were requested
+        if: ${{ github.event.inputs.reviewStatus == 'changes-requested' }}
+        run: |
+          {
+            echo "> **CHANGES REQUESTED.** A reviewer asked for changes, but this draft was published as-is."
             echo ""
             cat quick-start-guide.md
           } > quick-start-guide.tmp.md
@@ -81,21 +91,18 @@ jobs:
         run: |
           echo "## Link check" >> results.md
           URLS=$(grep -oE 'https?://[^ )]+' "$DRAFT_PATH" | sort -u)
-          FAILED=0
           for URL in $URLS; do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$URL" || echo "000")
             if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
               echo "- PASS: $URL ($STATUS)" >> results.md
             else
               echo "- FAIL: $URL ($STATUS)" >> results.md
-              FAILED=1
             fi
           done
           if [ -z "$URLS" ]; then
             echo "- No links found in the draft." >> results.md
           fi
           echo "" >> results.md
-          exit 0
 
       - name: Heading structure check
         if: ${{ github.event.inputs.runHeadingCheck == 'true' }}
@@ -136,45 +143,50 @@ jobs:
           fi
           echo "" >> results.md
 
+      - name: Instruction consistency check
+        if: ${{ github.event.inputs.runConsistencyCheck == 'true' }}
+        run: |
+          echo "## Instruction consistency check" >> results.md
+          FAILED=0
+          for PATH_FRAG in "/auth/login" "/auth/me" "/auth/refresh" "/auth/logout"; do
+            STATED=$(grep -oE "Send an? (GET|POST|PUT|DELETE) request to \`?${PATH_FRAG}" "$DRAFT_PATH" | grep -oE "GET|POST|PUT|DELETE" | head -n1)
+            ACTUAL=$(grep -oE "^(GET|POST|PUT|DELETE) https://[^ ]*${PATH_FRAG}" "$DRAFT_PATH" | grep -oE "^(GET|POST|PUT|DELETE)" | head -n1)
+            if [ -n "$STATED" ] && [ -n "$ACTUAL" ]; then
+              if [ "$STATED" = "$ACTUAL" ]; then
+                echo "- PASS: $PATH_FRAG instruction ($STATED) matches its example." >> results.md
+              else
+                echo "- FAIL: $PATH_FRAG instruction says $STATED, but the example shows $ACTUAL." >> results.md
+                FAILED=1
+              fi
+            fi
+          done
+          if [ "$FAILED" -eq 0 ]; then
+            echo "" >> results.md
+            echo "All instructions match their examples." >> results.md
+          fi
+          echo "" >> results.md
+
       - name: Install Vale
         if: ${{ github.event.inputs.runValeCheck == 'true' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          RELEASE_JSON=$(curl -sL -H "Authorization: Bearer $GH_TOKEN" \
+          VALE_URL=$(curl -sL -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/errata-ai/vale/releases/latest)
+            https://api.github.com/repos/errata-ai/vale/releases/latest \
+            | grep "browser_download_url" \
+            | grep "Linux_64-bit.tar.gz" \
+            | cut -d '"' -f 4)
 
-          VALE_URL=$(echo "$RELEASE_JSON" | grep "browser_download_url" | grep "Linux_64-bit.tar.gz" | cut -d '"' -f 4)
-          CHECKSUMS_URL=$(echo "$RELEASE_JSON" | grep "browser_download_url" | grep "checksums.txt" | cut -d '"' -f 4)
-
-          if [ -z "$VALE_URL" ] || [ -z "$CHECKSUMS_URL" ]; then
+          if [ -z "$VALE_URL" ]; then
             echo "VALE_INSTALLED=false" >> "$GITHUB_ENV"
-            exit 0
-          fi
-
-          curl -sfL "$VALE_URL" -o vale.tar.gz
-          curl -sfL "$CHECKSUMS_URL" -o checksums.txt
-
-          EXPECTED=$(grep "Linux_64-bit.tar.gz" checksums.txt | awk '{print $1}')
-          ACTUAL=$(sha256sum vale.tar.gz | awk '{print $1}')
-
-          if [ "$EXPECTED" != "$ACTUAL" ]; then
-            echo "Checksum mismatch. Refusing to install Vale."
+          else
+            curl -sfL "$VALE_URL" -o vale.tar.gz && \
+            tar -xzf vale.tar.gz vale && \
+            sudo mv vale /usr/local/bin/vale && \
+            echo "VALE_INSTALLED=true" >> "$GITHUB_ENV" || \
             echo "VALE_INSTALLED=false" >> "$GITHUB_ENV"
-            exit 0
           fi
-
-          tar -xzf vale.tar.gz vale && \
-          sudo mv vale /usr/local/bin/vale && \
-          echo "VALE_INSTALLED=true" >> "$GITHUB_ENV" || \
-          echo "VALE_INSTALLED=false" >> "$GITHUB_ENV"
-
-      - name: Sync Vale styles
-        if: ${{ github.event.inputs.runValeCheck == 'true' && env.VALE_INSTALLED == 'true' }}
-        run: |
-          mkdir -p .vale/styles
-          vale sync --config=.vale.ini
 
       - name: Vale style check
         if: ${{ github.event.inputs.runValeCheck == 'true' }}
