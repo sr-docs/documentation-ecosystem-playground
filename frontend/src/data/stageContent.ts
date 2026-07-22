@@ -29,8 +29,7 @@ export const stages: StageContent[] = [
       title: 'Documentation Planning Scenario',
       scenario:
         'Your team built a new API for user authentication. The API is ready for release, but there\'s no documentation. Your product manager asks: "When can users start using this?" You realize documentation is the blocker.',
-      task:
-        'Create a documentation plan for the authentication API. Define what documentation you need, who needs it, and how you\'ll know it worked.',
+      task: 'Decide what to write, who it\'s for, and how you\'ll know it worked.',
       keyDecisions: [
         'Identify the target audience: developers, integrators, or internal teams',
         'List the documentation types you need: quick start, API reference, examples',
@@ -49,9 +48,8 @@ export const stages: StageContent[] = [
     exercise: {
       title: 'Documentation Writing Scenario',
       scenario:
-        'A quick start guide already exists in the pull request below. It has a mistake: an instruction that doesn\'t match its own example. Read it closely.',
-      task:
-        'Find and fix the problem in the draft. Save your changes, then request a review when you\'re ready.',
+        'Below is a real pull request with a real bug in it: one step tells you to do something the example doesn\'t actually do. Find it.',
+      task: 'Fix it. Save. Then ask for a review, just like you would on a real team.',
       keyDecisions: [
         'Check every instruction against its own example',
         'Decide what else, if anything, needs tightening',
@@ -70,7 +68,7 @@ export const stages: StageContent[] = [
     exercise: {
       title: 'Documentation Review Scenario',
       scenario:
-        'The quick start guide is ready for review. You\'re the reviewer. The plan\'s success criteria and the API reference are both available to check the draft against.',
+        'You\'re the reviewer now. Below: what the writer was asked to deliver, and the reference to check their work against.',
       task:
         'Read the draft. Compare it to the API reference for accuracy, and to the success criteria for completeness. Leave a comment explaining what you found, then approve the draft or request changes.',
       keyDecisions: [
@@ -91,7 +89,7 @@ export const stages: StageContent[] = [
     exercise: {
       title: 'Documentation Publishing Scenario',
       scenario:
-        'Publishing isn\'t a single click. Below is the current draft, exactly as it stands in WRITE right now, along with its review status. Automation checks it before it goes live.',
+        'Publishing isn\'t a single click. It\'s a decision. Below: the draft, whether it\'s actually been reviewed, and what automated checks find before it goes live.',
       task:
         'Review the draft and its review status. Choose which checks to run, then publish. If the draft isn\'t approved yet, go back and fix it first, the checks will tell you why.',
       keyDecisions: [
@@ -116,7 +114,7 @@ export const stages: StageContent[] = [
     exercise: {
       title: 'Documentation Observation Scenario',
       scenario:
-        'Every time someone runs PUBLISH, the result is saved. Below is the real history: what was published, whether it was reviewed first, and what the checks found.',
+        'Every time someone runs PUBLISH, it\'s saved. Below is the real history: what was published, whether it was reviewed first, and what the checks found.',
       task:
         'Look through the real publish history. Decide what it tells you. Then file an issue describing what you observed and what should happen next.',
       keyDecisions: [
