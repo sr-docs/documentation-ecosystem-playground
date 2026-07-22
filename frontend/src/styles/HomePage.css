@@ -33,3 +33,9 @@
   justify-content: center;
   flex: 1;
 }
+
+.hero-note {
+  margin-top: var(--space-2);
+  font-size: 0.9rem;
+  color: var(--color-muted);
+}
