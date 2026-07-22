@@ -478,6 +478,7 @@ interface PublishChecks {
   runLinkCheck: boolean
   runHeadingCheck: boolean
   runCodeBlockCheck: boolean
+  runConsistencyCheck: boolean
   runValeCheck: boolean
 }
 
@@ -554,6 +555,7 @@ async function dispatchPublishWorkflow(
         runLinkCheck: String(checks.runLinkCheck),
         runHeadingCheck: String(checks.runHeadingCheck),
         runCodeBlockCheck: String(checks.runCodeBlockCheck),
+        runConsistencyCheck: String(checks.runConsistencyCheck),
         runValeCheck: String(checks.runValeCheck),
         requestId,
       },
@@ -571,6 +573,74 @@ async function dispatchPublishWorkflow(
     runUrl: `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/actions/workflows/publish-quickstart.yml`,
     requestId,
   }
+}
+
+async function dispatchRunChecks(
+  draftContent: string,
+  checks: PublishChecks,
+  reviewStatus: ReviewDecisionStatus,
+  onStatusUpdate: (message: string) => void
+): Promise<string> {
+  const requestId = crypto.randomUUID()
+
+  onStatusUpdate('Sending your draft and check selection to GitHub.')
+
+  const res = await fetch(WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      workflowFile: 'run-checks.yml',
+      ref: 'main',
+      inputs: {
+        draftContent,
+        reviewStatus,
+        runLinkCheck: String(checks.runLinkCheck),
+        runHeadingCheck: String(checks.runHeadingCheck),
+        runCodeBlockCheck: String(checks.runCodeBlockCheck),
+        runConsistencyCheck: String(checks.runConsistencyCheck),
+        runValeCheck: String(checks.runValeCheck),
+        requestId,
+      },
+    }),
+  })
+
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}))
+    throw new Error(detail.error || `Dispatch failed: ${res.status}`)
+  }
+
+  onStatusUpdate('Workflow triggered. It usually takes under a minute to finish.')
+
+  return requestId
+}
+
+async function pollForCheckResults(
+  requestId: string,
+  onStatusUpdate: (message: string) => void,
+  { timeoutMs = 90000, intervalMs = 4000 } = {}
+): Promise<string> {
+  const deadline = Date.now() + timeoutMs
+  let attempt = 0
+
+  while (Date.now() < deadline) {
+    attempt += 1
+    onStatusUpdate(`Waiting for checks to finish. Attempt ${attempt}.`)
+
+    const resultsContent = await fetchPublishedFile(`publish-results/${requestId}/results.md`)
+
+    if (resultsContent) {
+      onStatusUpdate('Results found.')
+      return resultsContent
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, intervalMs))
+  }
+
+  throw new Error('Timed out waiting for check results to appear.')
+}
+
+function checkResultsHaveFailure(resultsContent: string): boolean {
+  return resultsContent.includes('FAIL') || /^E\d{3}/m.test(resultsContent)
 }
 // --- end publish ---
 
@@ -788,12 +858,18 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
     runLinkCheck: true,
     runHeadingCheck: true,
     runCodeBlockCheck: true,
+    runConsistencyCheck: true,
     runValeCheck: true,
   })
-  const [publishSubmitStatus, setPublishSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
-  const [publishRunUrl, setPublishRunUrl] = useState<string | null>(null)
   const [reviewDecisionStatus, setReviewDecisionStatus] = useState<ReviewDecisionStatus | null>(null)
   const [reviewDecisionLoading, setReviewDecisionLoading] = useState(false)
+
+  const [checkRunStatus, setCheckRunStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [checkResultsContent, setCheckResultsContent] = useState<string | null>(null)
+  const [checkRequestId, setCheckRequestId] = useState<string | null>(null)
+
+  const [publishSubmitStatus, setPublishSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [publishRunUrl, setPublishRunUrl] = useState<string | null>(null)
   const [publishResultsContent, setPublishResultsContent] = useState<string | null>(null)
   const [publishFinalDraft, setPublishFinalDraft] = useState<string | null>(null)
 
@@ -801,8 +877,8 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
   const [publishHistory, setPublishHistory] = useState<PublishHistoryEntry[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [observationNotes, setObservationNotes] = useState('')
-const [observeSubmitStatus, setObserveSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
-const [observeIssueUrl, setObserveIssueUrl] = useState<string | null>(null)
+  const [observeSubmitStatus, setObserveSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [observeIssueUrl, setObserveIssueUrl] = useState<string | null>(null)
 
   const content = getStageContent(stage)
 
@@ -958,20 +1034,50 @@ const [observeIssueUrl, setObserveIssueUrl] = useState<string | null>(null)
     }
   }
 
-  async function handlePublish() {
+  function handleToggleCheck(key: keyof PublishChecks, value: boolean) {
+    setPublishChecks({ ...publishChecks, [key]: value })
+    setCheckRunStatus('idle')
+    setCheckResultsContent(null)
+    setCheckRequestId(null)
+  }
+
+  async function handleRunChecks() {
     if (publishDraft.trim().length < 20) {
-      setErrorMessage('The draft is too short to publish.')
-      setPublishSubmitStatus('error')
+      setErrorMessage('The draft is too short to check.')
+      setCheckRunStatus('error')
       return
     }
 
     const anyCheckSelected = Object.values(publishChecks).some(Boolean)
     if (!anyCheckSelected) {
       setErrorMessage('Select at least one check to run.')
-      setPublishSubmitStatus('error')
+      setCheckRunStatus('error')
       return
     }
 
+    setCheckRunStatus('loading')
+    setErrorMessage(null)
+    setStatusMessage('')
+    setCheckResultsContent(null)
+
+    try {
+      const requestId = await dispatchRunChecks(
+        publishDraft,
+        publishChecks,
+        reviewDecisionStatus ?? 'unknown',
+        setStatusMessage
+      )
+      const results = await pollForCheckResults(requestId, setStatusMessage)
+      setCheckResultsContent(results)
+      setCheckRequestId(requestId)
+      setCheckRunStatus('success')
+    } catch (err) {
+      setErrorMessage(getErrorMessage(err))
+      setCheckRunStatus('error')
+    }
+  }
+
+  async function handlePublish() {
     setPublishSubmitStatus('loading')
     setErrorMessage(null)
     setStatusMessage('')
@@ -998,29 +1104,29 @@ const [observeIssueUrl, setObserveIssueUrl] = useState<string | null>(null)
   }
 
   async function handleSubmitObservation() {
-  if (observationNotes.trim().length < 15) {
-    setErrorMessage('Add a bit more detail: what you noticed, and what should happen next.')
-    setObserveSubmitStatus('error')
-    return
-  }
+    if (observationNotes.trim().length < 15) {
+      setErrorMessage('Add a bit more detail: what you noticed, and what should happen next.')
+      setObserveSubmitStatus('error')
+      return
+    }
 
-  setObserveSubmitStatus('loading')
-  setErrorMessage(null)
-  setStatusMessage('')
+    setObserveSubmitStatus('loading')
+    setErrorMessage(null)
+    setStatusMessage('')
 
-  try {
-    const result = await dispatchObserveIssue(
-      'Documentation observation: NimbusAuth quick start',
-      observationNotes,
-      setStatusMessage
-    )
-    setObserveIssueUrl(result.url)
-    setObserveSubmitStatus('success')
-  } catch (err) {
-    setErrorMessage(getErrorMessage(err))
-    setObserveSubmitStatus('error')
+    try {
+      const result = await dispatchObserveIssue(
+        'Documentation observation: NimbusAuth quick start',
+        observationNotes,
+        setStatusMessage
+      )
+      setObserveIssueUrl(result.url)
+      setObserveSubmitStatus('success')
+    } catch (err) {
+      setErrorMessage(getErrorMessage(err))
+      setObserveSubmitStatus('error')
+    }
   }
-}
 
   return (
     <div className="exercise-content-wrapper">
@@ -1119,8 +1225,8 @@ const [observeIssueUrl, setObserveIssueUrl] = useState<string | null>(null)
                   </a>
                 </p>
                 <p className="status-detail">
-                  WRITE currently works from one fixed example draft, not the plan you just
-                  submitted. Try WRITE to see how a draft gets reviewed and published.
+                  Heads up: WRITE uses a sample draft right now, not your plan above. Go see how
+                  a draft gets reviewed and published.
                 </p>
                 <button
                   className="submit-button"
@@ -1235,7 +1341,7 @@ const [observeIssueUrl, setObserveIssueUrl] = useState<string | null>(null)
                 {writeReviewRequestStatus === 'requested' && (
                   <div>
                     <p className="status-message status-success">
-                      Review requested. A reviewer will take a look soon.
+                      Review requested. See what a reviewer would say.
                     </p>
                     <button
                       className="submit-button"
@@ -1268,12 +1374,12 @@ const [observeIssueUrl, setObserveIssueUrl] = useState<string | null>(null)
 
           <div className="artifact-card">
             <div className="artifact-field">
-              <label>Success criteria</label>
+              <label>What this draft needs to do</label>
               <p className="task-text">{FIXED_PLAN.successCriteria}</p>
             </div>
 
             <div className="artifact-field">
-              <label>Related reference</label>
+              <label>Check against</label>
               <a href={RELATED_REFERENCE_URL} target="_blank" rel="noreferrer">
                 NimbusAuth API Reference
               </a>
@@ -1287,7 +1393,7 @@ const [observeIssueUrl, setObserveIssueUrl] = useState<string | null>(null)
             </div>
 
             <div className="artifact-field">
-              <label>Checks</label>
+              <label>Automated checks (run on every save)</label>
               {checksLoading && <p className="status-message status-loading">Loading checks.</p>}
               {!checksLoading && checks && checks.length > 0 && (
                 <ul className="checks-list">
@@ -1304,7 +1410,7 @@ const [observeIssueUrl, setObserveIssueUrl] = useState<string | null>(null)
             </div>
 
             <div className="artifact-field">
-              <label>Draft content</label>
+              <label>The draft</label>
               {draftLoading && <p className="status-message status-loading">Loading the draft.</p>}
               {!draftLoading && (
                 <div className="draft-preview-rendered">
@@ -1373,7 +1479,7 @@ const [observeIssueUrl, setObserveIssueUrl] = useState<string | null>(null)
                     View the comment on GitHub
                   </a>
                 </p>
-                <p>The draft is back in WRITE. A writer needs to address this feedback.</p>
+                <p>The draft's back with the writer. Someone needs to fix what you flagged.</p>
                 <button
                   className="submit-button"
                   type="button"
@@ -1399,7 +1505,7 @@ const [observeIssueUrl, setObserveIssueUrl] = useState<string | null>(null)
 
           <div className="artifact-card">
             <div className="artifact-field">
-              <label>Review status</label>
+              <label>Has this been reviewed?</label>
               {reviewDecisionLoading && (
                 <p className="status-message status-loading">Checking review status.</p>
               )}
@@ -1435,7 +1541,7 @@ const [observeIssueUrl, setObserveIssueUrl] = useState<string | null>(null)
             )}
 
             <div className="artifact-field">
-              <label>Draft, as currently written in WRITE</label>
+              <label>The draft you're about to publish</label>
               {publishLoading && <p className="status-message status-loading">Loading the draft.</p>}
               {!publishLoading && (
                 <div className="draft-preview-rendered">
@@ -1447,57 +1553,112 @@ const [observeIssueUrl, setObserveIssueUrl] = useState<string | null>(null)
             <div className="artifact-field">
               <label>Checks to run</label>
               <div className="checkbox-list">
-                <label className="checkbox-row">
+                <label className={`checkbox-row ${publishChecks.runLinkCheck ? 'checkbox-row-active' : ''}`}>
                   <input
                     type="checkbox"
                     checked={publishChecks.runLinkCheck}
-                    onChange={(e) =>
-                      setPublishChecks({ ...publishChecks, runLinkCheck: e.target.checked })
-                    }
+                    onChange={(e) => handleToggleCheck('runLinkCheck', e.target.checked)}
                   />
-                  Link check
+                  <span className="checkbox-row-text">
+                    <span className="checkbox-row-title">Link check</span>
+                    <span className="checkbox-row-description">Confirms every link in the draft actually resolves.</span>
+                  </span>
                 </label>
-                <label className="checkbox-row">
+                <label className={`checkbox-row ${publishChecks.runHeadingCheck ? 'checkbox-row-active' : ''}`}>
                   <input
                     type="checkbox"
                     checked={publishChecks.runHeadingCheck}
-                    onChange={(e) =>
-                      setPublishChecks({ ...publishChecks, runHeadingCheck: e.target.checked })
-                    }
+                    onChange={(e) => handleToggleCheck('runHeadingCheck', e.target.checked)}
                   />
-                  Heading structure check
+                  <span className="checkbox-row-text">
+                    <span className="checkbox-row-title">Heading structure check</span>
+                    <span className="checkbox-row-description">Makes sure headings step down in order, with none skipped.</span>
+                  </span>
                 </label>
-                <label className="checkbox-row">
+                <label className={`checkbox-row ${publishChecks.runCodeBlockCheck ? 'checkbox-row-active' : ''}`}>
                   <input
                     type="checkbox"
                     checked={publishChecks.runCodeBlockCheck}
-                    onChange={(e) =>
-                      setPublishChecks({ ...publishChecks, runCodeBlockCheck: e.target.checked })
-                    }
+                    onChange={(e) => handleToggleCheck('runCodeBlockCheck', e.target.checked)}
                   />
-                  Code block formatting check
+                  <span className="checkbox-row-text">
+                    <span className="checkbox-row-title">Code block formatting check</span>
+                    <span className="checkbox-row-description">Checks that every code block is properly opened and closed.</span>
+                  </span>
                 </label>
-                <label className="checkbox-row">
+                <label className={`checkbox-row ${publishChecks.runConsistencyCheck ? 'checkbox-row-active' : ''}`}>
+                  <input
+                    type="checkbox"
+                    checked={publishChecks.runConsistencyCheck}
+                    onChange={(e) => handleToggleCheck('runConsistencyCheck', e.target.checked)}
+                  />
+                  <span className="checkbox-row-text">
+                    <span className="checkbox-row-title">Instruction consistency check</span>
+                    <span className="checkbox-row-description">Confirms each instruction's method matches the method shown in its own example.</span>
+                  </span>
+                </label>
+                <label className={`checkbox-row ${publishChecks.runValeCheck ? 'checkbox-row-active' : ''}`}>
                   <input
                     type="checkbox"
                     checked={publishChecks.runValeCheck}
-                    onChange={(e) =>
-                      setPublishChecks({ ...publishChecks, runValeCheck: e.target.checked })
-                    }
+                    onChange={(e) => handleToggleCheck('runValeCheck', e.target.checked)}
                   />
-                  Vale style check
+                  <span className="checkbox-row-text">
+                    <span className="checkbox-row-title">Vale style check</span>
+                    <span className="checkbox-row-description">Flags filler words and phrasing that don't match the style guide.</span>
+                  </span>
                 </label>
               </div>
             </div>
 
-            <button
-              className="submit-button"
-              type="button"
-              onClick={handlePublish}
-              disabled={publishSubmitStatus === 'loading'}
-            >
-              {publishSubmitStatus === 'loading' ? 'Running checks.' : 'Run checks and publish'}
-            </button>
+            {checkRunStatus !== 'success' && (
+              <button
+                className="submit-button"
+                type="button"
+                onClick={handleRunChecks}
+                disabled={checkRunStatus === 'loading'}
+              >
+                {checkRunStatus === 'loading' ? 'Running checks.' : 'Run checks'}
+              </button>
+            )}
+
+            {checkRunStatus === 'loading' && statusMessage && (
+              <p className="status-message status-loading">{statusMessage}</p>
+            )}
+
+            {checkRunStatus === 'error' && errorMessage && (
+              <p className="status-message status-error">{errorMessage}</p>
+            )}
+
+            {checkRunStatus === 'success' && checkResultsContent && (
+              <div className="artifact-field">
+                <label>Check results</label>
+                <div className="draft-preview-rendered">
+                  <MarkdownPreview content={checkResultsContent} />
+                </div>
+              </div>
+            )}
+
+            {checkRunStatus === 'success' && checkResultsContent && checkResultsHaveFailure(checkResultsContent) && (
+              <div className="modified-banner">
+                <p>Some checks failed. You can still publish, but the result will reflect that.</p>
+              </div>
+            )}
+
+            {checkRunStatus === 'success' && checkRequestId && publishSubmitStatus !== 'success' && (
+              <button
+                className="submit-button"
+                type="button"
+                onClick={handlePublish}
+                disabled={publishSubmitStatus === 'loading'}
+              >
+                {publishSubmitStatus === 'loading'
+                  ? 'Publishing.'
+                  : checkResultsContent && checkResultsHaveFailure(checkResultsContent)
+                  ? 'Publish anyway'
+                  : 'Publish'}
+              </button>
+            )}
 
             {publishSubmitStatus === 'loading' && statusMessage && (
               <p className="status-message status-loading">{statusMessage}</p>
@@ -1505,23 +1666,14 @@ const [observeIssueUrl, setObserveIssueUrl] = useState<string | null>(null)
 
             {publishSubmitStatus === 'success' && publishResultsContent && (
               <div className="status-message status-success">
-                <p>Published. Results are shown below.</p>
+                <p>Live. Here's what happened.</p>
 
                 <div className="artifact-field">
-                  <label>Check results</label>
+                  <label>Published content</label>
                   <div className="draft-preview-rendered">
-                    <MarkdownPreview content={publishResultsContent} />
+                    <MarkdownPreview content={publishFinalDraft || ''} />
                   </div>
                 </div>
-
-                {publishFinalDraft && (
-                  <div className="artifact-field">
-                    <label>Published content</label>
-                    <div className="draft-preview-rendered">
-                      <MarkdownPreview content={publishFinalDraft} />
-                    </div>
-                  </div>
-                )}
 
                 {publishRunUrl && (
                   <p className="status-detail">
@@ -1551,7 +1703,7 @@ const [observeIssueUrl, setObserveIssueUrl] = useState<string | null>(null)
       {stage === 'OBSERVE' && (
         <section className="artifact-section">
           <div className="artifact-header">
-            <h2>Publish history</h2>
+            <h2>What's actually happened here</h2>
           </div>
 
           <div className="artifact-card">
@@ -1577,8 +1729,8 @@ const [observeIssueUrl, setObserveIssueUrl] = useState<string | null>(null)
                     </div>
                     <p className="task-text">
                       {entry.failCount === 0
-                        ? 'All selected checks passed.'
-                        : `${entry.failCount} check line(s) flagged FAIL.`}
+                        ? 'Every check passed.'
+                        : `${entry.failCount} check(s) found a problem.`}
                     </p>
                   </li>
                 ))}
@@ -1586,14 +1738,14 @@ const [observeIssueUrl, setObserveIssueUrl] = useState<string | null>(null)
             )}
 
             <div className="artifact-field">
-  <label>Your observation</label>
-  <textarea
-    rows={5}
-    value={observationNotes}
-    onChange={(e) => setObservationNotes(e.target.value)}
-    placeholder="What pattern or issue do you see in the history above, and what should happen next?"
-  />
-</div>
+              <label>Your observation</label>
+              <textarea
+                rows={5}
+                value={observationNotes}
+                onChange={(e) => setObservationNotes(e.target.value)}
+                placeholder="What pattern or issue do you see in the history above, and what should happen next?"
+              />
+            </div>
 
             <button
               className="submit-button"
@@ -1601,8 +1753,12 @@ const [observeIssueUrl, setObserveIssueUrl] = useState<string | null>(null)
               onClick={handleSubmitObservation}
               disabled={observeSubmitStatus === 'loading'}
             >
-              {observeSubmitStatus === 'loading' ? 'Filing issue.' : 'File an issue'}
+              {observeSubmitStatus === 'loading' ? 'Logging.' : 'Log it'}
             </button>
+
+            <p className="status-detail">
+              This becomes a real GitHub issue, the same way a team would track it.
+            </p>
 
             {observeSubmitStatus === 'loading' && statusMessage && (
               <p className="status-message status-loading">{statusMessage}</p>
