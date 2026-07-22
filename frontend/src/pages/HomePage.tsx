@@ -33,7 +33,10 @@ export default function HomePage({
     <div className="homepage">
       <section className="hero">
         <h1>Documentation Ecosystem Playground</h1>
-        <p>Explore how documentation moves through a modern system.</p>
+        <p>Write, review, and ship real documentation, the way engineering teams actually do it.</p>
+        <p className="hero-note">
+          This is real. Every issue, comment, and pull request you create here actually exists on GitHub.
+        </p>
       </section>
 
       <section className="workflow">
