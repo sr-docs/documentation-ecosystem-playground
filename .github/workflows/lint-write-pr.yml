@@ -6,7 +6,8 @@ on:
       - 'tasks/write-instances/**'
 
 jobs:
-  lint:
+  checks:
+    name: Documentation checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,3 +21,21 @@ jobs:
             echo "Draft is too short."
             exit 1
           fi
+
+      - name: Check instruction consistency
+        run: |
+          FILE=$(find tasks/write-instances -type f -name "*.md" | head -n 1)
+          FAILED=0
+          for PATH_FRAG in "/auth/login" "/auth/me" "/auth/refresh" "/auth/logout"; do
+            STATED=$(grep -oE "Send an? (GET|POST|PUT|DELETE) request to \`?${PATH_FRAG}" "$FILE" | grep -oE "GET|POST|PUT|DELETE" | head -n1)
+            ACTUAL=$(grep -oE "^(GET|POST|PUT|DELETE) https://[^ ]*${PATH_FRAG}" "$FILE" | grep -oE "^(GET|POST|PUT|DELETE)" | head -n1)
+            if [ -n "$STATED" ] && [ -n "$ACTUAL" ] && [ "$STATED" != "$ACTUAL" ]; then
+              echo "Instruction mismatch for $PATH_FRAG: says $STATED, example shows $ACTUAL."
+              FAILED=1
+            fi
+          done
+          if [ "$FAILED" -eq 1 ]; then
+            echo "One or more instructions don't match their examples."
+            exit 1
+          fi
+          echo "All instructions match their examples."
