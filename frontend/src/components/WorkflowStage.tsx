@@ -17,7 +17,7 @@ export default function WorkflowStage({ stage, isSelected, onClick }: WorkflowSt
       type="button"
     >
       <span className="workflow-stage-label">{stage.label}</span>
-      <span className="workflow-stage-primitive">{stage.githubImplementation}</span>
+      <span className="workflow-stage-primitive">{stage.outcomeLabel}</span>
     </button>
   )
 }
