@@ -4,6 +4,7 @@ const ALLOWED_WORKFLOWS = [
   'request-write-review.yml',
   'comment-on-plan-issue.yml',
   'submit-pr-review.yml',
+  'run-checks.yml',
   'publish-quickstart.yml',
   'create-observe-issue.yml',
   'update-write-pr.yml',
@@ -40,6 +41,15 @@ const INPUT_RULES = {
     prNumber: 'number',
     comment: 2000,
     decision: ['Approved', 'Changes requested'],
+  },
+  'run-checks.yml': {
+  draftContent: 2000,
+  reviewStatus: ['approved', 'changes-requested', 'not-reviewed', 'unknown'],
+  runLinkCheck: 'boolean',
+  runHeadingCheck: 'boolean',
+  runCodeBlockCheck: 'boolean',
+  runValeCheck: 'boolean',
+  requestId: 'uuid',
   },
   'publish-quickstart.yml': {
     draftContent: 2000,
