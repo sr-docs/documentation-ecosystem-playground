@@ -23,7 +23,7 @@ jobs:
             const sevenDaysAgo = new Date();
             sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-            const PROTECTED_BRANCHES = ['write/seed-fallback-001'];
+            const PROTECTED_BRANCHES = ['write/seed-fallback-001', 'write/seed-api-reference'];
 
             const { data: pulls } = await github.rest.pulls.list({
               owner: context.repo.owner,
