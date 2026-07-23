@@ -159,7 +159,7 @@ async function findCreatedIssue(
 }
 // --- end plan ---
 
-// --- shared fixed plan info, used by WRITE, REVIEW, and PUBLISH ---
+// --- begin tracks (fixed instances for WRITE, REVIEW, PUBLISH) ---
 interface FixedPlan {
   title: string
   problem: string
@@ -168,21 +168,20 @@ interface FixedPlan {
   successCriteria: string
 }
 
-const FIXED_PLAN: FixedPlan = {
-  title: 'Authentication API Documentation',
-  problem: "Users can't integrate with the authentication API because documentation doesn't exist.",
-  audience: 'Developers integrating with the authentication API',
-  documentationNeeded: 'Quick start guide, API reference, and three integration examples',
-  successCriteria: 'Developers can authenticate and make their first API request without support.',
+interface Track {
+  id: string
+  title: string
+  description: string
+  seedDraftPath: string
+  seedDraftBranch: string
+  seedPrUrl: string
+  seedPrNumber: string
+  relatedReferenceUrl: string
+  fallbackContent: string
+  plan: FixedPlan
 }
 
-const SEED_DRAFT_PATH = 'tasks/write-instances/seed-fallback-001.md'
-const SEED_DRAFT_BRANCH = 'write/seed-fallback-001'
-const SEED_PR_URL = 'https://github.com/sr-docs/documentation-ecosystem-playground/pull/28'
-const SEED_PR_NUMBER = '28'
-const RELATED_REFERENCE_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/blob/main/tasks/write-instances/nimbusauth-api-reference.md`
-
-const SEED_DRAFT_CONTENT_FALLBACK = `# NimbusAuth Quick Start Guide
+const QUICKSTART_CONTENT_FALLBACK = `# NimbusAuth Quick Start Guide
 
 Get up and running with the NimbusAuth API in a few minutes.
 
@@ -233,26 +232,128 @@ Access tokens expire after an hour. When yours expires, send your refresh token 
 
 Send a POST request to /auth/logout to end your session.`
 
-async function fetchSeedDraftContent(): Promise<string> {
+const API_REFERENCE_CONTENT_FALLBACK = `# List active sessions
+
+Get a list of a user's active sessions, including device and location details for each one.
+
+## Authentication
+
+Requires a valid access token.
+
+Authorization: Bearer {access_token}
+
+## Request
+
+GET https://api.nimbusauth.dev/v1/auth/sessions
+
+### Query parameters
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| \`limit\` | integer | No | Maximum number of sessions to return. Defaults to 20 if omitted. Accepts values from 1 to 100. |
+| \`active_only\` | boolean | No | Return only sessions that haven't expired. Defaults to \`true\`. Set to \`false\` to include expired sessions. |
+
+## Response
+
+A successful request returns a 200 status and a list of session objects.
+
+### Response fields
+
+| Field | Type | Description |
+|---|---|---|
+| \`session_id\` | string | Unique identifier for the session. |
+| \`device\` | string | The device or browser the session was created from. |
+| \`ip_address\` | string | The IP address the session was created from. |
+| \`created_at\` | string | When the session was created, in ISO 8601 format. |
+| \`last_active_at\` | string | When the session was last used, in ISO 8601 format. |
+| \`current\` | boolean | Whether this is the session making the current request. |
+
+## Example
+
+**Request**
+
+GET https://api.nimbusauth.dev/v1/auth/sessions
+Authorization: Bearer ey.abc123
+
+**Response**
+
+{
+  "error": "invalid_request",
+  "message": "limit is required"
+}
+
+## Error codes
+
+| Code | Meaning |
+|---|---|
+| \`401\` | The access token is missing, expired, or invalid. |
+| \`400\` | The request includes an invalid \`limit\` value. \`limit\` must be a number between 1 and 100. |`
+
+const TRACKS: Track[] = [
+  {
+    id: 'quickstart',
+    title: 'Quick start guide',
+    description: 'A getting-started guide for the authentication API.',
+    seedDraftPath: 'tasks/write-instances/seed-fallback-001.md',
+    seedDraftBranch: 'write/seed-fallback-001',
+    seedPrUrl: 'https://github.com/sr-docs/documentation-ecosystem-playground/pull/28',
+    seedPrNumber: '28',
+    relatedReferenceUrl: `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/blob/main/tasks/write-instances/nimbusauth-api-reference.md`,
+    fallbackContent: QUICKSTART_CONTENT_FALLBACK,
+    plan: {
+      title: 'Authentication API Documentation',
+      problem: "Users can't integrate with the authentication API because documentation doesn't exist.",
+      audience: 'Developers integrating with the authentication API',
+      documentationNeeded: 'Quick start guide, API reference, and three integration examples',
+      successCriteria: 'Developers can authenticate and make their first API request without support.',
+    },
+  },
+  {
+    id: 'api-reference',
+    title: 'API reference',
+    description: 'Endpoint reference documentation for listing active sessions.',
+    seedDraftPath: 'tasks/write-instances/seed-api-reference.md',
+    seedDraftBranch: 'write/seed-api-reference',
+    seedPrUrl: 'https://github.com/sr-docs/documentation-ecosystem-playground/pull/45',
+    seedPrNumber: '45',
+    relatedReferenceUrl: `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/blob/main/docs/api-reference/sessions.md`,
+    fallbackContent: API_REFERENCE_CONTENT_FALLBACK,
+    plan: {
+      title: 'Session Listing Endpoint Reference',
+      problem: "Developers can't tell which query parameters are required when listing active sessions.",
+      audience: 'Developers integrating session management into their app',
+      documentationNeeded: 'A complete endpoint reference: parameters, response fields, error codes, and a worked example',
+      successCriteria: 'A developer can call the endpoint correctly on the first try, with no guessing.',
+    },
+  },
+]
+
+function getTrack(id: string): Track {
+  return TRACKS.find((t) => t.id === id) || TRACKS[0]
+}
+// --- end tracks ---
+
+async function fetchDraftContent(track: Track): Promise<string> {
   try {
     const res = await fetch(
-      `${WORKER_URL}file?path=${encodeURIComponent(SEED_DRAFT_PATH)}&ref=${encodeURIComponent(SEED_DRAFT_BRANCH)}&_=${Date.now()}`,
+      `${WORKER_URL}file?path=${encodeURIComponent(track.seedDraftPath)}&ref=${encodeURIComponent(track.seedDraftBranch)}&_=${Date.now()}`,
       { cache: 'no-store' }
     )
 
     if (!res.ok) {
-      return SEED_DRAFT_CONTENT_FALLBACK
+      return track.fallbackContent
     }
 
     const data = await res.json()
-    return data.content || SEED_DRAFT_CONTENT_FALLBACK
+    return data.content || track.fallbackContent
   } catch {
-    return SEED_DRAFT_CONTENT_FALLBACK
+    return track.fallbackContent
   }
 }
 
 // --- begin write ---
 async function dispatchUpdateWriteDraft(
+  track: Track,
   draftContent: string,
   onStatusUpdate: (message: string) => void
 ): Promise<void> {
@@ -266,7 +367,12 @@ async function dispatchUpdateWriteDraft(
     body: JSON.stringify({
       workflowFile: 'update-write-pr.yml',
       ref: 'main',
-      inputs: { draftContent, requestId },
+      inputs: {
+        draftContent,
+        branch: track.seedDraftBranch,
+        filePath: track.seedDraftPath,
+        requestId,
+      },
     }),
   })
 
@@ -277,10 +383,11 @@ async function dispatchUpdateWriteDraft(
 
   onStatusUpdate('Updating the pull request. This can take a moment.')
 
-  await pollForUpdatedDraft(draftContent, onStatusUpdate)
+  await pollForUpdatedDraft(track, draftContent, onStatusUpdate)
 }
 
 async function pollForUpdatedDraft(
+  track: Track,
   expectedContent: string,
   onStatusUpdate: (message: string) => void,
   { timeoutMs = 60000, intervalMs = 3000 } = {}
@@ -292,7 +399,7 @@ async function pollForUpdatedDraft(
     attempt += 1
     onStatusUpdate(`Confirming the update. Attempt ${attempt}.`)
 
-    const current = await fetchSeedDraftContent()
+    const current = await fetchDraftContent(track)
     if (current.trim() === expectedContent.trim()) {
       onStatusUpdate('Draft updated.')
       return
@@ -353,7 +460,7 @@ function dedupeChecksByName(checks: CheckResult[]): CheckResult[] {
   return result
 }
 
-async function fetchSeedPRChecks(): Promise<CheckResult[] | null> {
+async function fetchPRChecks(track: Track): Promise<CheckResult[] | null> {
   try {
     const pullsRes = await fetch(
       `${WORKER_URL}poll?type=pulls&_=${Date.now()}`,
@@ -365,14 +472,14 @@ async function fetchSeedPRChecks(): Promise<CheckResult[] | null> {
     }
 
     const pulls = await pullsRes.json()
-    const seedPR = pulls.find((pr: { number: number }) => String(pr.number) === SEED_PR_NUMBER)
+    const pr = pulls.find((p: { number: number }) => String(p.number) === track.seedPrNumber)
 
-    if (!seedPR) {
+    if (!pr) {
       return null
     }
 
     const checksRes = await fetch(
-      `${WORKER_URL}checks?sha=${seedPR.head.sha}&_=${Date.now()}`,
+      `${WORKER_URL}checks?sha=${pr.head.sha}&_=${Date.now()}`,
       { cache: 'no-store' }
     )
 
@@ -403,10 +510,10 @@ interface ReviewCommentInfo {
   rawComment: string | null
 }
 
-async function fetchLatestReviewCommentInfo(): Promise<ReviewCommentInfo> {
+async function fetchReviewCommentInfo(track: Track): Promise<ReviewCommentInfo> {
   try {
     const res = await fetch(
-      `${WORKER_URL}pr-comments?prNumber=${SEED_PR_NUMBER}&_=${Date.now()}`,
+      `${WORKER_URL}pr-comments?prNumber=${track.seedPrNumber}&_=${Date.now()}`,
       { cache: 'no-store' }
     )
 
@@ -448,6 +555,7 @@ function extractCommentBody(raw: string): string {
 }
 
 async function dispatchPRReview(
+  track: Track,
   comment: string,
   decision: string,
   onStatusUpdate: (message: string) => void
@@ -460,7 +568,7 @@ async function dispatchPRReview(
     body: JSON.stringify({
       workflowFile: 'submit-pr-review.yml',
       ref: 'main',
-      inputs: { prNumber: SEED_PR_NUMBER, comment, decision },
+      inputs: { prNumber: track.seedPrNumber, comment, decision },
     }),
   })
 
@@ -479,6 +587,7 @@ interface PublishChecks {
   runHeadingCheck: boolean
   runCodeBlockCheck: boolean
   runConsistencyCheck: boolean
+  runAccuracyCheck: boolean
   runValeCheck: boolean
 }
 
@@ -556,6 +665,7 @@ async function dispatchPublishWorkflow(
         runHeadingCheck: String(checks.runHeadingCheck),
         runCodeBlockCheck: String(checks.runCodeBlockCheck),
         runConsistencyCheck: String(checks.runConsistencyCheck),
+        runAccuracyCheck: String(checks.runAccuracyCheck),
         runValeCheck: String(checks.runValeCheck),
         requestId,
       },
@@ -598,6 +708,7 @@ async function dispatchRunChecks(
         runHeadingCheck: String(checks.runHeadingCheck),
         runCodeBlockCheck: String(checks.runCodeBlockCheck),
         runConsistencyCheck: String(checks.runConsistencyCheck),
+        runAccuracyCheck: String(checks.runAccuracyCheck),
         runValeCheck: String(checks.runValeCheck),
         requestId,
       },
@@ -822,6 +933,10 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
   const [statusMessage, setStatusMessage] = useState<string>('')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
+  // Track selection (shared by WRITE, REVIEW, PUBLISH)
+  const [selectedTrackId, setSelectedTrackId] = useState<string>('quickstart')
+  const track = getTrack(selectedTrackId)
+
   // PLAN
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [issueUrl, setIssueUrl] = useState<string | null>(null)
@@ -835,7 +950,7 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
 
   // WRITE
   const [showStyleGuide, setShowStyleGuide] = useState(false)
-  const [writeDraft, setWriteDraft] = useState<string>(SEED_DRAFT_CONTENT_FALLBACK)
+  const [writeDraft, setWriteDraft] = useState<string>(QUICKSTART_CONTENT_FALLBACK)
   const [writeDraftLoading, setWriteDraftLoading] = useState(false)
   const [writeFeedbackComment, setWriteFeedbackComment] = useState<string | null>(null)
   const [writeUpdateStatus, setWriteUpdateStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
@@ -846,19 +961,20 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
   const [reviewSubmitStatus, setReviewSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [reviewResultUrl, setReviewResultUrl] = useState<string | null>(null)
   const [lastReviewDecision, setLastReviewDecision] = useState<'approve' | 'request-changes' | null>(null)
-  const [liveDraftContent, setLiveDraftContent] = useState<string>(SEED_DRAFT_CONTENT_FALLBACK)
+  const [liveDraftContent, setLiveDraftContent] = useState<string>(QUICKSTART_CONTENT_FALLBACK)
   const [draftLoading, setDraftLoading] = useState(false)
   const [checks, setChecks] = useState<CheckResult[] | null>(null)
   const [checksLoading, setChecksLoading] = useState(false)
 
   // PUBLISH
-  const [publishDraft, setPublishDraft] = useState<string>(SEED_DRAFT_CONTENT_FALLBACK)
+  const [publishDraft, setPublishDraft] = useState<string>(QUICKSTART_CONTENT_FALLBACK)
   const [publishLoading, setPublishLoading] = useState(false)
   const [publishChecks, setPublishChecks] = useState<PublishChecks>({
     runLinkCheck: true,
     runHeadingCheck: true,
     runCodeBlockCheck: true,
     runConsistencyCheck: true,
+    runAccuracyCheck: true,
     runValeCheck: true,
   })
   const [reviewDecisionStatus, setReviewDecisionStatus] = useState<ReviewDecisionStatus | null>(null)
@@ -888,13 +1004,13 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
       setWriteReviewRequestStatus('idle')
       setWriteDraftLoading(true)
 
-      fetchSeedDraftContent().then((text) => {
+      fetchDraftContent(track).then((text) => {
         setWriteDraft(text)
         setWriteDraftLoading(false)
       })
 
       if (cameFromReview) {
-        fetchLatestReviewCommentInfo().then((info) => {
+        fetchReviewCommentInfo(track).then((info) => {
           if (info.status === 'changes-requested' && info.rawComment) {
             setWriteFeedbackComment(extractCommentBody(info.rawComment))
           } else {
@@ -908,13 +1024,13 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
 
     if (stage === 'REVIEW') {
       setDraftLoading(true)
-      fetchSeedDraftContent().then((text) => {
+      fetchDraftContent(track).then((text) => {
         setLiveDraftContent(text)
         setDraftLoading(false)
       })
 
       setChecksLoading(true)
-      fetchSeedPRChecks().then((result) => {
+      fetchPRChecks(track).then((result) => {
         setChecks(result)
         setChecksLoading(false)
       })
@@ -922,13 +1038,13 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
 
     if (stage === 'PUBLISH') {
       setPublishLoading(true)
-      fetchSeedDraftContent().then((text) => {
+      fetchDraftContent(track).then((text) => {
         setPublishDraft(text)
         setPublishLoading(false)
       })
 
       setReviewDecisionLoading(true)
-      fetchLatestReviewCommentInfo().then((info) => {
+      fetchReviewCommentInfo(track).then((info) => {
         setReviewDecisionStatus(info.status)
         setReviewDecisionLoading(false)
       })
@@ -942,7 +1058,7 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
       })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage, cameFromReview])
+  }, [stage, cameFromReview, selectedTrackId])
 
   if (!content) {
     return null
@@ -990,7 +1106,7 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
     setStatusMessage('')
 
     try {
-      await dispatchUpdateWriteDraft(writeDraft, setStatusMessage)
+      await dispatchUpdateWriteDraft(track, writeDraft, setStatusMessage)
       setWriteUpdateStatus('success')
     } catch (err) {
       setErrorMessage(getErrorMessage(err))
@@ -1003,7 +1119,7 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
     setErrorMessage(null)
 
     try {
-      await dispatchReviewRequest(SEED_PR_NUMBER)
+      await dispatchReviewRequest(track.seedPrNumber)
       setWriteReviewRequestStatus('requested')
     } catch (err) {
       setErrorMessage(getErrorMessage(err))
@@ -1024,8 +1140,8 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
 
     try {
       const decisionLabel = decision === 'approve' ? 'Approved' : 'Changes requested'
-      await dispatchPRReview(reviewComment, decisionLabel, setStatusMessage)
-      setReviewResultUrl(SEED_PR_URL)
+      await dispatchPRReview(track, reviewComment, decisionLabel, setStatusMessage)
+      setReviewResultUrl(track.seedPrUrl)
       setLastReviewDecision(decision)
       setReviewSubmitStatus('success')
     } catch (err) {
@@ -1225,7 +1341,7 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
                   </a>
                 </p>
                 <p className="status-detail">
-                  Heads up: WRITE uses a sample draft right now, not your plan above. Go see how
+                  Heads up: WRITE uses sample drafts right now, not your plan above. Go see how
                   a draft gets reviewed and published.
                 </p>
                 <button
@@ -1253,18 +1369,37 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
 
           <div className="artifact-card">
             <div className="artifact-field">
+              <label>Choose what to work on</label>
+              <div className="checkbox-list">
+                {TRACKS.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    className={`checkbox-row ${selectedTrackId === t.id ? 'checkbox-row-active' : ''}`}
+                    onClick={() => setSelectedTrackId(t.id)}
+                  >
+                    <span className="checkbox-row-text">
+                      <span className="checkbox-row-title">{t.title}</span>
+                      <span className="checkbox-row-description">{t.description}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="artifact-field">
               <label>Writing for</label>
-              <p className="task-text">{FIXED_PLAN.title}</p>
+              <p className="task-text">{track.plan.title}</p>
             </div>
 
             <div className="artifact-field">
               <label>Problem</label>
-              <p className="task-text">{FIXED_PLAN.problem}</p>
+              <p className="task-text">{track.plan.problem}</p>
             </div>
 
             <div className="artifact-field">
               <label>Audience</label>
-              <p className="task-text">{FIXED_PLAN.audience}</p>
+              <p className="task-text">{track.plan.audience}</p>
             </div>
 
             {writeFeedbackComment && (
@@ -1323,7 +1458,7 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
               <div className="status-message status-success">
                 <p>
                   Draft saved.{' '}
-                  <a href={SEED_PR_URL} target="_blank" rel="noreferrer">
+                  <a href={track.seedPrUrl} target="_blank" rel="noreferrer">
                     View the pull request on GitHub
                   </a>
                 </p>
@@ -1374,20 +1509,39 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
 
           <div className="artifact-card">
             <div className="artifact-field">
+              <label>Choose what to review</label>
+              <div className="checkbox-list">
+                {TRACKS.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    className={`checkbox-row ${selectedTrackId === t.id ? 'checkbox-row-active' : ''}`}
+                    onClick={() => setSelectedTrackId(t.id)}
+                  >
+                    <span className="checkbox-row-text">
+                      <span className="checkbox-row-title">{t.title}</span>
+                      <span className="checkbox-row-description">{t.description}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="artifact-field">
               <label>What this draft needs to do</label>
-              <p className="task-text">{FIXED_PLAN.successCriteria}</p>
+              <p className="task-text">{track.plan.successCriteria}</p>
             </div>
 
             <div className="artifact-field">
               <label>Check against</label>
-              <a href={RELATED_REFERENCE_URL} target="_blank" rel="noreferrer">
-                NimbusAuth API Reference
+              <a href={track.relatedReferenceUrl} target="_blank" rel="noreferrer">
+                Reference material
               </a>
             </div>
 
             <div className="artifact-field">
               <label>Pull request under review</label>
-              <a href={SEED_PR_URL} target="_blank" rel="noreferrer">
+              <a href={track.seedPrUrl} target="_blank" rel="noreferrer">
                 View the pull request on GitHub
               </a>
             </div>
@@ -1505,6 +1659,25 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
 
           <div className="artifact-card">
             <div className="artifact-field">
+              <label>Choose what to publish</label>
+              <div className="checkbox-list">
+                {TRACKS.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    className={`checkbox-row ${selectedTrackId === t.id ? 'checkbox-row-active' : ''}`}
+                    onClick={() => setSelectedTrackId(t.id)}
+                  >
+                    <span className="checkbox-row-text">
+                      <span className="checkbox-row-title">{t.title}</span>
+                      <span className="checkbox-row-description">{t.description}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="artifact-field">
               <label>Has this been reviewed?</label>
               {reviewDecisionLoading && (
                 <p className="status-message status-loading">Checking review status.</p>
@@ -1595,6 +1768,17 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
                   <span className="checkbox-row-text">
                     <span className="checkbox-row-title">Instruction consistency check</span>
                     <span className="checkbox-row-description">Confirms each instruction's method matches the method shown in its own example.</span>
+                  </span>
+                </label>
+                <label className={`checkbox-row ${publishChecks.runAccuracyCheck ? 'checkbox-row-active' : ''}`}>
+                  <input
+                    type="checkbox"
+                    checked={publishChecks.runAccuracyCheck}
+                    onChange={(e) => handleToggleCheck('runAccuracyCheck', e.target.checked)}
+                  />
+                  <span className="checkbox-row-text">
+                    <span className="checkbox-row-title">Endpoint reference accuracy check</span>
+                    <span className="checkbox-row-description">Confirms optional parameters aren't contradicted by the worked example.</span>
                   </span>
                 </label>
                 <label className={`checkbox-row ${publishChecks.runValeCheck ? 'checkbox-row-active' : ''}`}>

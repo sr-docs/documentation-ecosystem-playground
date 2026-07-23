@@ -1,13 +1,11 @@
 const ALLOWED_WORKFLOWS = [
   'create-plan-issue.yml',
-  'create-write-pr.yml',
+  'update-write-pr.yml',
   'request-write-review.yml',
-  'comment-on-plan-issue.yml',
   'submit-pr-review.yml',
   'run-checks.yml',
   'publish-quickstart.yml',
   'create-observe-issue.yml',
-  'update-write-pr.yml',
 ];
 
 const ALLOWED_ORIGIN = 'https://sr-docs.github.io';
@@ -15,6 +13,21 @@ const GITHUB_OWNER = 'sr-docs';
 const GITHUB_REPO = 'documentation-ecosystem-playground';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Known, curated tracks. Nothing outside this list is ever accepted for
+// branch/file writes or PR interactions, regardless of what a request claims.
+const KNOWN_TRACKS = [
+  {
+    branch: 'write/seed-fallback-001',
+    filePath: 'tasks/write-instances/seed-fallback-001.md',
+    prNumber: '28',
+  },
+  {
+    branch: 'write/seed-api-reference',
+    filePath: 'tasks/write-instances/seed-api-reference.md',
+    prNumber: '45',
+  },
+];
 
 const INPUT_RULES = {
   'create-plan-issue.yml': {
@@ -25,17 +38,14 @@ const INPUT_RULES = {
     successCriteria: 1000,
     requestId: 'uuid',
   },
-  'create-write-pr.yml': {
-    title: 200,
+  'update-write-pr.yml': {
     draftContent: 2000,
+    branch: 500,
+    filePath: 500,
     requestId: 'uuid',
   },
   'request-write-review.yml': {
     prNumber: 'number',
-  },
-  'comment-on-plan-issue.yml': {
-    issueNumber: 'number',
-    prUrl: 500,
   },
   'submit-pr-review.yml': {
     prNumber: 'number',
@@ -49,6 +59,7 @@ const INPUT_RULES = {
     runHeadingCheck: 'boolean',
     runCodeBlockCheck: 'boolean',
     runConsistencyCheck: 'boolean',
+    runAccuracyCheck: 'boolean',
     runValeCheck: 'boolean',
     requestId: 'uuid',
   },
@@ -59,16 +70,13 @@ const INPUT_RULES = {
     runHeadingCheck: 'boolean',
     runCodeBlockCheck: 'boolean',
     runConsistencyCheck: 'boolean',
+    runAccuracyCheck: 'boolean',
     runValeCheck: 'boolean',
     requestId: 'uuid',
   },
   'create-observe-issue.yml': {
-  title: 200,
-  notes: 3000,
-  requestId: 'uuid',
-},
-  'update-write-pr.yml': {
-    draftContent: 2000,
+    title: 200,
+    notes: 3000,
     requestId: 'uuid',
   },
 };
@@ -120,6 +128,23 @@ function validateInputs(workflowFile, inputs) {
       if (typeof value !== 'string' || value.length === 0 || value.length > rule) {
         return `Field ${key} must be a string between 1 and ${rule} characters.`;
       }
+    }
+  }
+
+  // Extra allowlist checks for workflows that touch specific branches/PRs.
+  if (workflowFile === 'update-write-pr.yml') {
+    const match = KNOWN_TRACKS.find(
+      (t) => t.branch === inputs.branch && t.filePath === inputs.filePath
+    );
+    if (!match) {
+      return 'branch/filePath is not a recognized track.';
+    }
+  }
+
+  if (workflowFile === 'request-write-review.yml' || workflowFile === 'submit-pr-review.yml') {
+    const match = KNOWN_TRACKS.find((t) => t.prNumber === inputs.prNumber);
+    if (!match) {
+      return 'prNumber is not a recognized track.';
     }
   }
 

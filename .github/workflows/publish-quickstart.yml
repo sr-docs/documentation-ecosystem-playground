@@ -4,40 +4,37 @@ on:
   workflow_dispatch:
     inputs:
       draftContent:
-        description: "Draft content to check and publish"
         required: true
         type: string
       reviewStatus:
-        description: "Current review status: approved, changes-requested, not-reviewed, unknown"
         required: true
         type: string
       runLinkCheck:
-        description: "Run link check"
         required: true
         type: boolean
         default: false
       runHeadingCheck:
-        description: "Run heading structure check"
         required: true
         type: boolean
         default: false
       runCodeBlockCheck:
-        description: "Run code block formatting check"
         required: true
         type: boolean
         default: false
       runConsistencyCheck:
-        description: "Run instruction consistency check"
+        required: true
+        type: boolean
+        default: false
+      runAccuracyCheck:
+        description: "Run endpoint reference accuracy check"
         required: true
         type: boolean
         default: false
       runValeCheck:
-        description: "Run Vale style check"
         required: true
         type: boolean
         default: false
       requestId:
-        description: "Request ID for tracking"
         required: true
         type: string
 
@@ -162,8 +159,34 @@ jobs:
           done
           if [ "$FAILED" -eq 0 ]; then
             echo "" >> results.md
-            echo "All instructions match their examples." >> results.md
+            echo "No instruction mismatches found." >> results.md
           fi
+          echo "" >> results.md
+
+      - name: Endpoint reference accuracy check
+        if: ${{ github.event.inputs.runAccuracyCheck == 'true' }}
+        run: |
+          echo "## Endpoint reference accuracy check" >> results.md
+          node -e "
+          const fs = require('fs');
+          const text = fs.readFileSync(process.env.DRAFT_PATH, 'utf8');
+          const rows = [...text.matchAll(/\| \`(\w+)\` \| \w+ \| No \|/g)].map(m => m[1]);
+          if (rows.length === 0) {
+            console.log('- No optional parameters found to check.');
+          } else {
+            let failed = false;
+            for (const param of rows) {
+              const pattern = new RegExp(param + ' is required', 'i');
+              if (pattern.test(text)) {
+                console.log('- FAIL: ' + param + ' is documented as optional, but the example shows it as required.');
+                failed = true;
+              }
+            }
+            if (!failed) {
+              console.log('- PASS: no optional parameters are contradicted by the example.');
+            }
+          }
+          " >> results.md
           echo "" >> results.md
 
       - name: Install Vale

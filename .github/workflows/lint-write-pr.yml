@@ -39,3 +39,21 @@ jobs:
             exit 1
           fi
           echo "All instructions match their examples."
+
+      - name: Check endpoint reference accuracy
+        run: |
+          FILE=$(find tasks/write-instances -type f -name "*.md" | head -n 1)
+          node -e "
+          const fs = require('fs');
+          const text = fs.readFileSync('$FILE', 'utf8');
+          const rows = [...text.matchAll(/\| \`(\w+)\` \| \w+ \| No \|/g)].map(m => m[1]);
+          let failed = false;
+          for (const param of rows) {
+            const pattern = new RegExp(param + ' is required', 'i');
+            if (pattern.test(text)) {
+              console.log('Parameter ' + param + ' is documented as optional but shown as required in the example.');
+              failed = true;
+            }
+          }
+          process.exit(failed ? 1 : 0);
+          "
