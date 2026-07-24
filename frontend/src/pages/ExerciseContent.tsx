@@ -54,10 +54,39 @@ function renderMarkdown(raw: string): string {
   text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
   text = text.replace(/`([^`]+)`/g, '<code>$1</code>')
 
+  // Tables: a header row, a separator row of dashes, then one or more data rows.
+  text = text.replace(
+    /^(\|.+\|)\n\|[\s:-]+\|\n((?:\|.+\|\n?)+)/gm,
+    (_match, headerLine: string, bodyLines: string) => {
+      const parseRow = (line: string): string[] =>
+        line
+          .trim()
+          .replace(/^\||\|$/g, '')
+          .split('|')
+          .map((cell) => cell.trim())
+
+      const headerCells = parseRow(headerLine)
+      const bodyRows = bodyLines
+        .trim()
+        .split('\n')
+        .map((line) => parseRow(line))
+
+      const theadHtml = `<thead><tr>${headerCells
+        .map((cell) => `<th>${cell}</th>`)
+        .join('')}</tr></thead>`
+
+      const tbodyHtml = `<tbody>${bodyRows
+        .map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join('')}</tr>`)
+        .join('')}</tbody>`
+
+      return `<table class="md-table">${theadHtml}${tbodyHtml}</table>\n\n`
+    }
+  )
+
   text = text.replace(/^- (.*)$/gm, '<li>$1</li>')
   text = text.replace(/(<li>.*<\/li>\n?)+/g, (match) => `<ul>${match}</ul>`)
 
-  const blockTagPattern = /^<(h1|h2|h3|h4|h5|h6|ul|pre)/
+  const blockTagPattern = /^<(h1|h2|h3|h4|h5|h6|ul|pre|table)/
   const paragraphs = text.split(/\n{2,}/).map((block) => {
     const trimmed = block.trim()
     if (!trimmed) {
