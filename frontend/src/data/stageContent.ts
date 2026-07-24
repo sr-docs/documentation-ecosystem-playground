@@ -51,10 +51,10 @@ export const stages: StageContent[] = [
     exercise: {
       title: 'Documentation Writing Scenario',
       scenario:
-        'Below is a real pull request with a real bug in it: one step tells you to do something the example doesn\'t actually do. Find it.',
-      task: 'Fix it. Save. Then ask for a review, just like you would on a real team.',
+        'Below are two real pull requests. Each has a real bug hiding in it: something the draft claims that its own example quietly contradicts. Pick one and find the mismatch.',
+      task: 'Pick a draft, fix what\'s wrong, save your changes, then request a review, just like you would on a real team.',
       keyDecisions: [
-        'Check every instruction against its own example',
+        'Check every instruction and every table row against its own example',
         'Decide what else, if anything, needs tightening',
         'Keep the fix scoped to what\'s actually wrong',
         'Save your changes before requesting a review',
@@ -72,11 +72,11 @@ export const stages: StageContent[] = [
     exercise: {
       title: 'Documentation Review Scenario',
       scenario:
-        'You\'re the reviewer now. Below: what the writer was asked to deliver, and the reference to check their work against.',
+        'You\'re the reviewer now. Pick a draft below. You\'ll see what the writer was asked to deliver, and what to check their work against, a reference doc for one draft, the actual source code for the other.',
       task:
-        'Read the draft. Compare it to the API reference for accuracy, and to the success criteria for completeness. Leave a comment explaining what you found, then approve the draft or request changes.',
+        'Read the draft. Compare it against the reference material for accuracy, and against the success criteria for completeness. Leave a comment explaining what you found, then approve the draft or request changes.',
       keyDecisions: [
-        'Check the draft\'s technical accuracy against the API reference',
+        'Check the draft\'s technical accuracy against the reference material',
         'Decide whether an issue blocks publishing or can wait',
         'Write a comment specific enough for the writer to act on',
         'Choose to approve or request changes',
@@ -94,9 +94,9 @@ export const stages: StageContent[] = [
     exercise: {
       title: 'Documentation Publishing Scenario',
       scenario:
-        'Publishing isn\'t a single click. It\'s a decision. Below: the draft, whether it\'s actually been reviewed, and what automated checks find before it goes live.',
+        'Publishing isn\'t a single click. It\'s a decision. Pick a draft below, then see whether it\'s actually been reviewed and what automated checks find before it goes live.',
       task:
-        'Review the draft and its review status. Choose which checks to run, then publish. If the draft isn\'t approved yet, go back and fix it first, the checks will tell you why.',
+        'Pick a draft, check its review status, choose which checks to run, then publish. If it isn\'t approved yet, go back and fix it first, the checks will tell you why.',
       keyDecisions: [
         'Decide what\'s worth validating before publishing: links, headings, code formatting, style',
         'Notice whether this draft has actually been reviewed',
@@ -120,7 +120,7 @@ export const stages: StageContent[] = [
     exercise: {
       title: 'Documentation Observation Scenario',
       scenario:
-        'Every time someone runs PUBLISH, it\'s saved. Below is the real history: what was published, whether it was reviewed first, and what the checks found.',
+        'Every time someone runs PUBLISH, it\'s saved, for any draft. Below is the real history: what was published, whether it was reviewed first, and what the checks found.',
       task:
         'Look through the real publish history. Decide what it tells you. Then file an issue describing what you observed and what should happen next.',
       keyDecisions: [
