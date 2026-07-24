@@ -34,9 +34,10 @@ function escapeHtml(text: string): string {
 }
 
 function renderMarkdown(raw: string): string {
+  const normalized = raw.replace(/\r\n/g, '\n')
   const codeBlocks: string[] = []
 
-  let text = raw.replace(/```([\s\S]*?)```/g, (_match, code: string) => {
+  let text = normalized.replace(/```([\s\S]*?)```/g, (_match, code: string) => {
     const escaped = escapeHtml(code.trim())
     codeBlocks.push(`<pre class="md-code-block"><code>${escaped}</code></pre>`)
     return `\u0000CODEBLOCK${codeBlocks.length - 1}\u0000`
@@ -54,7 +55,6 @@ function renderMarkdown(raw: string): string {
   text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
   text = text.replace(/`([^`]+)`/g, '<code>$1</code>')
 
-  // Tables: a header row, a separator row of dashes, then one or more data rows.
   text = text.replace(
     /^(\|.+\|)\n\|[\s:-]+\|\n((?:\|.+\|\n?)+)/gm,
     (_match, headerLine: string, bodyLines: string) => {
