@@ -177,6 +177,7 @@ interface Track {
   seedPrUrl: string
   seedPrNumber: string
   relatedReferenceUrl: string
+  referenceLabel: string
   fallbackContent: string
   plan: FixedPlan
 }
@@ -299,6 +300,7 @@ const TRACKS: Track[] = [
     seedPrUrl: 'https://github.com/sr-docs/documentation-ecosystem-playground/pull/28',
     seedPrNumber: '28',
     relatedReferenceUrl: `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/blob/main/tasks/write-instances/nimbusauth-api-reference.md`,
+    referenceLabel: 'NimbusAuth API Reference',
     fallbackContent: QUICKSTART_CONTENT_FALLBACK,
     plan: {
       title: 'Authentication API Documentation',
@@ -316,7 +318,8 @@ const TRACKS: Track[] = [
     seedDraftBranch: 'write/seed-api-reference',
     seedPrUrl: 'https://github.com/sr-docs/documentation-ecosystem-playground/pull/45',
     seedPrNumber: '45',
-    relatedReferenceUrl: `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/blob/main/docs/api-reference/sessions.md`,
+    relatedReferenceUrl: `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/blob/main/reference-code/routes/sessions.js`,
+    referenceLabel: 'Source: sessions.js route handler',
     fallbackContent: API_REFERENCE_CONTENT_FALLBACK,
     plan: {
       title: 'Session Listing Endpoint Reference',
@@ -1023,6 +1026,12 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
     }
 
     if (stage === 'REVIEW') {
+      // Reset any results from a previously selected draft before loading the new one.
+      setReviewComment('')
+      setReviewSubmitStatus('idle')
+      setReviewResultUrl(null)
+      setLastReviewDecision(null)
+
       setDraftLoading(true)
       fetchDraftContent(track).then((text) => {
         setLiveDraftContent(text)
@@ -1037,6 +1046,15 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
     }
 
     if (stage === 'PUBLISH') {
+      // Reset any check/publish results from a previously selected draft before loading the new one.
+      setCheckRunStatus('idle')
+      setCheckResultsContent(null)
+      setCheckRequestId(null)
+      setPublishSubmitStatus('idle')
+      setPublishRunUrl(null)
+      setPublishResultsContent(null)
+      setPublishFinalDraft(null)
+
       setPublishLoading(true)
       fetchDraftContent(track).then((text) => {
         setPublishDraft(text)
@@ -1535,7 +1553,7 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
             <div className="artifact-field">
               <label>Check against</label>
               <a href={track.relatedReferenceUrl} target="_blank" rel="noreferrer">
-                Reference material
+                {track.referenceLabel}
               </a>
             </div>
 
