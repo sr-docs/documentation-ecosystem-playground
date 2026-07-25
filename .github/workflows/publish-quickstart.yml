@@ -236,6 +236,16 @@ jobs:
             results.md
           retention-days: 1
 
+      - name: Debug token presence
+        env:
+          GH_TOKEN: ${{ secrets.WRITE_PAT }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "WRITE_PAT is empty or not set."
+          else
+            echo "WRITE_PAT is present. Length: ${#GH_TOKEN}"
+          fi
+          
       - name: Commit results for inline display
         env:
           GH_TOKEN: ${{ secrets.WRITE_PAT }}
