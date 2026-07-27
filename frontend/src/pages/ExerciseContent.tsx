@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { getStageContent } from '../data/stageContent'
+import StageMedia from '../components/MediaPlaceholder'
 import '../styles/ExercisePage.css'
 
 interface ExerciseContentProps {
@@ -1055,7 +1056,6 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
     }
 
     if (stage === 'REVIEW') {
-      // Reset any results from a previously selected draft before loading the new one.
       setReviewComment('')
       setReviewSubmitStatus('idle')
       setReviewResultUrl(null)
@@ -1075,7 +1075,6 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
     }
 
     if (stage === 'PUBLISH') {
-      // Reset any check/publish results from a previously selected draft before loading the new one.
       setCheckRunStatus('idle')
       setCheckResultsContent(null)
       setCheckRequestId(null)
@@ -1293,6 +1292,31 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
 
   return (
     <div className="exercise-content-wrapper">
+      <StageMedia src={content.videoSrc} label={`${content.label} overview`} />
+
+      <section className="exercise-section">
+        <h2>What happens</h2>
+        <ul className="decisions-list">
+          {content.whatHappens.map((item, index) => (
+            <li key={index}>{item}</li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="exercise-section">
+        <h2>How this happens on GitHub</h2>
+        <p className="task-text implementation-value">{content.githubImplementation}</p>
+      </section>
+
+      <section className="exercise-section">
+        <h2>What you'll walk away with</h2>
+        <ul className="decisions-list">
+          {content.artifacts.map((item, index) => (
+            <li key={index}>{item}</li>
+          ))}
+        </ul>
+      </section>
+
       <section className="exercise-section">
         <h2>The scenario</h2>
         <p className="scenario-text">{content.exercise.scenario}</p>
