@@ -475,3 +475,40 @@
 .markdown-preview table.md-table tr:nth-child(even) td {
   background: var(--color-paper);
 }
+
+.stage-media {
+  width: 100%;
+  max-height: 360px;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  display: block;
+  margin-bottom: var(--space-6);
+  background: var(--color-paper);
+}
+
+.media-placeholder {
+  width: 100%;
+  padding: var(--space-8) var(--space-4);
+  margin-bottom: var(--space-6);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  text-align: center;
+  background: var(--color-paper);
+}
+
+.media-placeholder-label {
+  font-weight: 600;
+  margin: 0 0 var(--space-2) 0;
+}
+
+.media-placeholder-hint {
+  font-size: 0.85rem;
+  color: var(--color-muted);
+  margin: 0;
+}
+
+.implementation-value {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  color: var(--color-accent);
+}
