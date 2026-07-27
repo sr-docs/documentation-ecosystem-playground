@@ -2,6 +2,7 @@ export interface StageContent {
   id: string
   label: string
   outcomeLabel: string
+  videoSrc: string
   whatHappens: string[]
   githubImplementation: string
   artifacts: string[]
@@ -19,6 +20,7 @@ export const stages: StageContent[] = [
     id: 'PLAN',
     label: 'PLAN',
     outcomeLabel: 'Define the ask',
+    videoSrc: 'media/stages/plan.mp4',
     whatHappens: [
       'A documentation need is identified.',
       'Scope is defined.',
@@ -30,7 +32,7 @@ export const stages: StageContent[] = [
     exercise: {
       title: 'Documentation Planning Scenario',
       scenario:
-        'Your team built a new API for user authentication. The API is ready for release, but there\'s no documentation. Your product manager asks: "When can users start using this?" You realize documentation is the blocker.',
+        'Your team just started a new sprint. This time, the docs team sits in sprint planning with the dev team from day one, not brought in after the code ships. A new authentication API is on the board. Decide what documentation it needs, now, while the sprint is still being planned.',
       task: 'Decide what to write, who it\'s for, and how you\'ll know it worked.',
       keyDecisions: [
         'Identify the target audience: developers, integrators, or internal teams',
@@ -44,6 +46,7 @@ export const stages: StageContent[] = [
     id: 'WRITE',
     label: 'WRITE',
     outcomeLabel: 'Draft it',
+    videoSrc: 'media/stages/write.mp4',
     whatHappens: ['Content is drafted.', 'Information is organized.', 'Documentation takes shape.'],
     githubImplementation: 'Branch + Commits',
     artifacts: ['Draft documentation', 'Structured content'],
@@ -65,6 +68,7 @@ export const stages: StageContent[] = [
     id: 'REVIEW',
     label: 'REVIEW',
     outcomeLabel: 'Check it',
+    videoSrc: 'media/stages/review.mp4',
     whatHappens: ['Content is evaluated.', 'Feedback is provided.', 'Quality is improved.'],
     githubImplementation: 'Pull Request',
     artifacts: ['Review comments', 'Approval decisions'],
@@ -87,6 +91,7 @@ export const stages: StageContent[] = [
     id: 'PUBLISH',
     label: 'PUBLISH',
     outcomeLabel: 'Ship it',
+    videoSrc: 'media/stages/publish.mp4',
     whatHappens: ['Documentation is built.', 'Changes are deployed.', 'Content becomes available.'],
     githubImplementation: 'GitHub Actions',
     artifacts: ['Successful build', 'Deployment result'],
@@ -109,6 +114,7 @@ export const stages: StageContent[] = [
     id: 'OBSERVE',
     label: 'OBSERVE',
     outcomeLabel: 'Learn from it',
+    videoSrc: 'media/stages/observe.mp4',
     whatHappens: [
       'Documentation performance is evaluated.',
       'Improvements are identified.',
