@@ -507,6 +507,44 @@
   margin: 0;
 }
 
+.exercise-overview-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1.5rem;
+}
+
+.exercise-overview-table th,
+.exercise-overview-table td {
+  border: 1px solid var(--border-color, #e3e3e3);
+  padding: 0.75rem;
+  vertical-align: top;
+  text-align: left;
+}
+
+.exercise-overview-table th {
+  width: 220px; /* adjust as needed */
+  background: var(--muted-bg, #f9f9f9);
+  font-weight: 600;
+}
+
+@media (max-width: 700px) {
+  .exercise-overview-table th {
+    display: block;
+    width: auto;
+    background: transparent;
+    border-bottom: none;
+    padding-bottom: 0.25rem;
+  }
+  .exercise-overview-table td {
+    display: block;
+    border-top: none;
+  }
+  .exercise-overview-table tr {
+    margin-bottom: 0.75rem;
+    display: block;
+  }
+}
+
 .implementation-value {
   font-family: var(--font-mono);
   font-weight: 500;
