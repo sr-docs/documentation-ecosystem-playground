@@ -1301,48 +1301,58 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
       <StageMedia src={content.videoSrc} label={`${content.label} overview`} />
 
       <section className="exercise-section">
-        <h2>What happens</h2>
-        <ul className="decisions-list">
-          {content.whatHappens.map((item, index) => (
-            <li key={index}>{item}</li>
-          ))}
-        </ul>
-      </section>
+  <h2>Overview</h2>
+  <table className="exercise-overview-table">
+    <tbody>
+      <tr>
+        <th>Scenario</th>
+        <td>
+          <p className="scenario-text">{content.exercise.scenario}</p>
+        </td>
+      </tr>
 
-      <section className="exercise-section">
-        <h2>How this happens on GitHub</h2>
-        <p className="task-text implementation-value">{content.githubImplementation}</p>
-      </section>
+      <tr>
+        <th>GitHub activity</th>
+        <td>
+          <p className="task-text implementation-value">
+            {content.githubImplementation}
+          </p>
+        </td>
+      </tr>
 
-      <section className="exercise-section">
-        <h2>What you'll walk away with</h2>
-        <ul className="decisions-list">
-          {content.artifacts.map((item, index) => (
-            <li key={index}>{item}</li>
-          ))}
-        </ul>
-      </section>
+      <tr>
+        <th>Your task</th>
+        <td>
+          <p className="task-text">{content.exercise.task}</p>
+        </td>
+      </tr>
 
-      <section className="exercise-section">
-        <h2>The scenario</h2>
-        <p className="scenario-text">{content.exercise.scenario}</p>
-      </section>
-
-      <section className="exercise-section">
-        <h2>Your task</h2>
-        <p className="task-text">{content.exercise.task}</p>
-      </section>
-
-      {content.exercise.keyDecisions && (
-        <section className="exercise-section">
-          <h2>Key decisions to consider</h2>
+      <tr>
+        <th>You'll define</th>
+        <td>
           <ul className="decisions-list">
-            {content.exercise.keyDecisions.map((decision, index) => (
-              <li key={index}>{decision}</li>
+            {content.artifacts.map((item, index) => (
+              <li key={index}>{item}</li>
             ))}
           </ul>
-        </section>
+        </td>
+      </tr>
+
+      {content.exercise.keyDecisions && (
+        <tr>
+          <th>Consider</th>
+          <td>
+            <ul className="decisions-list">
+              {content.exercise.keyDecisions.map((decision, index) => (
+                <li key={index}>{decision}</li>
+              ))}
+            </ul>
+          </td>
+        </tr>
       )}
+    </tbody>
+  </table>
+</section>
 
       {stage === 'PLAN' && (
         <section className="artifact-section">
