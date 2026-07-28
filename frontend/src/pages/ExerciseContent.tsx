@@ -560,9 +560,15 @@ async function fetchReviewCommentInfo(track: Track): Promise<ReviewCommentInfo> 
       return { status: 'not-reviewed', rawComment: null }
     }
 
-    const latest = comments.find((c: { body?: string }) =>
-      c.body?.includes('Review decision:')
-    )
+    const latest = (() => {
+  for (let i = comments.length - 1; i >= 0; i--) {
+    const c = comments[i]
+    if (c && typeof c.body === 'string' && c.body.includes('Review decision:')) {
+      return c
+    }
+  }
+  return undefined
+})()
 
     if (!latest) {
       return { status: 'not-reviewed', rawComment: null }
