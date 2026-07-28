@@ -1298,8 +1298,6 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
 
   return (
     <div className="exercise-content-wrapper">
-      <StageMedia src={content.videoSrc} label={`${content.label} overview`} />
-
       <section className="exercise-section">
   <h2>Overview</h2>
   <table className="exercise-overview-table">
