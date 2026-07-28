@@ -18,9 +18,9 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 // branch/file writes or PR interactions, regardless of what a request claims.
 const KNOWN_TRACKS = [
   {
-    branch: 'write/seed-fallback-001',
-    filePath: 'tasks/write-instances/seed-fallback-001.md',
-    prNumber: '28',
+    branch: 'write/seed-quick-start',
+    filePath: 'tasks/write-instances/nimbusauth_quick-start.md',
+    prNumber: '47',
   },
   {
     branch: 'write/seed-api-reference',

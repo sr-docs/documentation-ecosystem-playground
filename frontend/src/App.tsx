@@ -1,33 +1,28 @@
 import { useState } from 'react'
+import IntroPage from './pages/IntroPage'
 import HomePage from './pages/HomePage'
 
 function App() {
-  const [selectedStage, setSelectedStage] = useState<string | null>(null)
+  const [showIntro, setShowIntro] = useState(true)
   const [tryingStage, setTryingStage] = useState<string | null>(null)
   const [cameFromReview, setCameFromReview] = useState(false)
 
-  const handleSelectStage = (stage: string | null) => {
-  setSelectedStage(stage)
-  setTryingStage(null)
-  setCameFromReview(false)
-}
-
   const handleTryStage = (stage: string) => {
     setCameFromReview(false)
-    setSelectedStage(stage)
     setTryingStage(stage)
   }
 
   const handleNavigateToStage = (stage: string, fromReviewFeedback?: boolean) => {
     setCameFromReview(!!fromReviewFeedback)
-    setSelectedStage(stage)
     setTryingStage(stage)
+  }
+
+  if (showIntro) {
+    return <IntroPage onContinue={() => setShowIntro(false)} />
   }
 
   return (
     <HomePage
-      selectedStage={selectedStage}
-      onSelectStage={handleSelectStage}
       tryingStage={tryingStage}
       onTryStage={handleTryStage}
       onNavigateToStage={handleNavigateToStage}

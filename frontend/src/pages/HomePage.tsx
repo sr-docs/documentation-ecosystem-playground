@@ -1,12 +1,9 @@
 import { useRef, useEffect } from 'react'
 import WorkflowStages from '../components/WorkflowStages'
-import ContextPanel from '../components/ContextPanel'
 import ExerciseContent from './ExerciseContent'
 import '../styles/HomePage.css'
 
 interface HomePageProps {
-  selectedStage: string | null
-  onSelectStage: (stage: string | null) => void
   tryingStage: string | null
   onTryStage: (stage: string) => void
   onNavigateToStage: (stage: string, fromReviewFeedback?: boolean) => void
@@ -14,8 +11,6 @@ interface HomePageProps {
 }
 
 export default function HomePage({
-  selectedStage,
-  onSelectStage,
   tryingStage,
   onTryStage,
   onNavigateToStage,
@@ -40,11 +35,7 @@ export default function HomePage({
       </section>
 
       <section className="workflow">
-        <WorkflowStages selectedStage={selectedStage} onSelectStage={onSelectStage} />
-      </section>
-
-      <section className="context">
-        <ContextPanel selectedStage={selectedStage} onTryStage={onTryStage} />
+        <WorkflowStages selectedStage={tryingStage} onSelectStage={onTryStage} />
       </section>
 
       {tryingStage && (
