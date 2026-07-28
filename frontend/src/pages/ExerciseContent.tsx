@@ -1353,7 +1353,7 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
     </tbody>
   </table>
 </section>
-
+<StageMedia src={content.videoSrc} label={`${content.label} overview`} />
       {stage === 'PLAN' && (
         <section className="artifact-section">
           <div className="artifact-header">
