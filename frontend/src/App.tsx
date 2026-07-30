@@ -17,6 +17,11 @@ function App() {
     setTryingStage(stage)
   }
 
+  const handleGoHome = () => {
+    setCameFromReview(false)
+    setTryingStage(null)
+  }
+
   if (showIntro) {
     return <IntroPage onContinue={() => setShowIntro(false)} />
   }
@@ -26,6 +31,7 @@ function App() {
       tryingStage={tryingStage}
       onTryStage={handleTryStage}
       onNavigateToStage={handleNavigateToStage}
+      onGoHome={handleGoHome}
       cameFromReview={cameFromReview}
     />
   )
