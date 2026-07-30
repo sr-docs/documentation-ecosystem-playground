@@ -17,9 +17,11 @@ function App() {
     setTryingStage(stage)
   }
 
+  // Show the intro page when "Go home" is triggered
   const handleGoHome = () => {
     setCameFromReview(false)
     setTryingStage(null)
+    setShowIntro(true)
   }
 
   if (showIntro) {
