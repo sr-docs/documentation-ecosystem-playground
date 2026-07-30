@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { mediaUrl } from '../utils/media'
 
 interface StageMediaProps {
@@ -10,6 +10,11 @@ const IMAGE_EXTENSIONS = ['.gif', '.png', '.jpg', '.jpeg', '.webp']
 
 export default function StageMedia({ src, label }: StageMediaProps) {
   const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    setFailed(false)
+  }, [src])
+
   const resolvedSrc = mediaUrl(src)
   const isImage = IMAGE_EXTENSIONS.some((ext) => src.toLowerCase().endsWith(ext))
 
