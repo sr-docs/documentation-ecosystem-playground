@@ -30,11 +30,10 @@ export default function HomePage({
     <div className="homepage">
       <section className="hero">
         <button className="home-title-button" type="button" onClick={onGoHome}>
-          <h1>Documentation Ecosystem Playground</h1>
+          <h1>SR's Documentation Ecosystem Playground</h1>
         </button>
-        <p>Write, review, and ship real documentation, the way engineering teams actually do it.</p>
         <p className="hero-note">
-          This is real. Every issue, comment, and pull request you create here actually exists on GitHub.
+          Every issue, comment, and pull request you create here actually exists on GitHub!
         </p>
       </section>
 
