@@ -1454,6 +1454,13 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
               <p className="task-text">{track.plan.audience}</p>
             </div>
 
+            <div className="artifact-field">
+              <label>Source reference</label>
+              <a href={track.relatedReferenceUrl} target="_blank" rel="noreferrer">
+                {track.referenceLabel}
+              </a>
+            </div>
+
             {writeFeedbackComment && (
               <div className="artifact-field">
                 <label>Reviewer feedback</label>
