@@ -7,6 +7,7 @@ interface HomePageProps {
   tryingStage: string | null
   onTryStage: (stage: string) => void
   onNavigateToStage: (stage: string, fromReviewFeedback?: boolean) => void
+  onGoHome: () => void
   cameFromReview: boolean
 }
 
@@ -14,6 +15,7 @@ export default function HomePage({
   tryingStage,
   onTryStage,
   onNavigateToStage,
+  onGoHome,
   cameFromReview,
 }: HomePageProps) {
   const exerciseRef = useRef<HTMLDivElement>(null)
@@ -27,7 +29,9 @@ export default function HomePage({
   return (
     <div className="homepage">
       <section className="hero">
-        <h1>Documentation Ecosystem Playground</h1>
+        <button className="home-title-button" type="button" onClick={onGoHome}>
+          <h1>Documentation Ecosystem Playground</h1>
+        </button>
         <p>Write, review, and ship real documentation, the way engineering teams actually do it.</p>
         <p className="hero-note">
           This is real. Every issue, comment, and pull request you create here actually exists on GitHub.
