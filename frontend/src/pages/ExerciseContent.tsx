@@ -1298,47 +1298,14 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
 
   return (
     <div className="exercise-content-wrapper">
+      <StageMedia src={content.videoSrc} label={`${content.label} overview`} />
       <section className="exercise-section">
   <h2>Overview</h2>
   <table className="exercise-overview-table">
     <tbody>
-      <tr>
-        <th>Scenario</th>
-        <td>
-          <p className="scenario-text">{content.exercise.scenario}</p>
-        </td>
-      </tr>
-
-      <tr>
-        <th>GitHub activity</th>
-        <td>
-          <p className="task-text implementation-value">
-            {content.githubImplementation}
-          </p>
-        </td>
-      </tr>
-
-      <tr>
-        <th>Your task</th>
-        <td>
-          <p className="task-text">{content.exercise.task}</p>
-        </td>
-      </tr>
-
-      <tr>
-        <th>You'll define</th>
-        <td>
-          <ul className="decisions-list">
-            {content.artifacts.map((item, index) => (
-              <li key={index}>{item}</li>
-            ))}
-          </ul>
-        </td>
-      </tr>
-
       {content.exercise.keyDecisions && (
         <tr>
-          <th>Consider</th>
+          <th>Your task</th>
           <td>
             <ul className="decisions-list">
               {content.exercise.keyDecisions.map((decision, index) => (
@@ -1351,7 +1318,7 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
     </tbody>
   </table>
 </section>
-<StageMedia src={content.videoSrc} label={`${content.label} overview`} />
+
       {stage === 'PLAN' && (
         <section className="artifact-section">
           <div className="artifact-header">
