@@ -10,7 +10,7 @@ export default function IntroPage({ onContinue }: IntroPageProps) {
     <div className="intro-page">
       <div className="intro-content">
         <h1>Welcome to SR's Docs as Code Playground!</h1>
-        
+        <p>Docs are often overlooked during software development until it's too late. How do you address this issue? </p>
         <div className="intro-media">
           <StageMedia src="media/intro/intro.mp4" label="Introduction" />
         </div>
