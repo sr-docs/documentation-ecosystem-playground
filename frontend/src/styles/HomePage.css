@@ -39,3 +39,18 @@
   font-size: 0.9rem;
   color: var(--color-muted);
 }
+
+.home-title-button {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0 auto;
+  display: block;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.home-title-button:hover h1 {
+  color: var(--color-accent);
+}
