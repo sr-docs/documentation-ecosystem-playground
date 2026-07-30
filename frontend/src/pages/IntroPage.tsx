@@ -9,19 +9,19 @@ export default function IntroPage({ onContinue }: IntroPageProps) {
   return (
     <div className="intro-page">
       <div className="intro-content">
-        <h1>Documentation Ecosystem Playground</h1>
-        <p>Write, review, and ship real documentation, the way engineering teams actually do it.</p>
+        <h1>Welcome to SR's Docs as Code Playground!</h1>
+        <p>Docs as Code is a methodology that treats technical documentation as software code, utilizing the same version control systems (like Git), plain text formats (such as Markdown), and CI/CD pipelines used for software development. </p>
 
         <div className="intro-media">
           <StageMedia src="media/intro/intro.mp4" label="Introduction" />
         </div>
 
         <p className="intro-note">
-          This is real. Every issue, comment, and pull request you create here actually exists on GitHub.
+         Do you want to write, review, and ship documentation the way real engineering teams actually do it?
         </p>
 
         <button className="intro-button" type="button" onClick={onContinue}>
-          Let's go
+          Let's go!
         </button>
       </div>
     </div>
