@@ -30,7 +30,7 @@ export default function HomePage({
     <div className="homepage">
       <section className="hero">
         <button className="home-title-button" type="button" onClick={onGoHome}>
-          <h1>SR's Documentation Ecosystem Playground</h1>
+          <h1>SR's Docs as Code Playground</h1>
         </button>
         <p className="hero-note">
           Every issue, comment, and pull request you create here actually exists on GitHub!
