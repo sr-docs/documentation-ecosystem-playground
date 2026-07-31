@@ -1300,23 +1300,12 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
     <div className="exercise-content-wrapper">
       <StageMedia src={content.videoSrc} label={`${content.label} overview`} />
       <section className="exercise-section">
-  <h2>Overview</h2>
-  <table className="exercise-overview-table">
-    <tbody>
-      {content.exercise.keyDecisions && (
-        <tr>
-          <th>Your task</th>
-          <td>
-            <ul className="decisions-list">
+  <h2>Your task</h2>
+        <ul className="decisions-list">
               {content.exercise.keyDecisions.map((decision, index) => (
                 <li key={index}>{decision}</li>
               ))}
             </ul>
-          </td>
-        </tr>
-      )}
-    </tbody>
-  </table>
 </section>
 
       {stage === 'PLAN' && (
