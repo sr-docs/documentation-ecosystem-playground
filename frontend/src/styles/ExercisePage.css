@@ -550,3 +550,52 @@
   font-weight: 500;
   color: var(--color-accent);
 }
+
+.field-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: var(--space-4);
+}
+
+.field-table th,
+.field-table td {
+  padding: var(--space-3);
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.field-table th {
+  width: 240px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.field-table td {
+  color: var(--color-ink);
+}
+
+.field-table tr:last-child th,
+.field-table tr:last-child td {
+  border-bottom: none;
+}
+
+@media (max-width: 640px) {
+  .field-table,
+  .field-table tbody,
+  .field-table tr,
+  .field-table th,
+  .field-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .field-table th {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  .field-table td {
+    padding-top: var(--space-1);
+  }
+}
