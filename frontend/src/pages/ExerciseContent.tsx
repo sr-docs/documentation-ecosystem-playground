@@ -561,14 +561,14 @@ async function fetchReviewCommentInfo(track: Track): Promise<ReviewCommentInfo> 
     }
 
     const latest = (() => {
-  for (let i = comments.length - 1; i >= 0; i--) {
-    const c = comments[i]
-    if (c && typeof c.body === 'string' && c.body.includes('Review decision:')) {
-      return c
-    }
-  }
-  return undefined
-})()
+      for (let i = comments.length - 1; i >= 0; i--) {
+        const c = comments[i]
+        if (c && typeof c.body === 'string' && c.body.includes('Review decision:')) {
+          return c
+        }
+      }
+      return undefined
+    })()
 
     if (!latest) {
       return { status: 'not-reviewed', rawComment: null }
@@ -968,6 +968,32 @@ function reviewStatusLabel(status: ReviewDecisionStatus): string {
   return KNOWN_REVIEW_STATUS_LABELS[status]
 }
 
+function TrackPicker({
+  selectedTrackId,
+  onSelect,
+}: {
+  selectedTrackId: string
+  onSelect: (id: string) => void
+}) {
+  return (
+    <div className="checkbox-list">
+      {TRACKS.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          className={`checkbox-row ${selectedTrackId === t.id ? 'checkbox-row-active' : ''}`}
+          onClick={() => onSelect(t.id)}
+        >
+          <span className="checkbox-row-text">
+            <span className="checkbox-row-title">{t.title}</span>
+            <span className="checkbox-row-description">{t.description}</span>
+          </span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export default function ExerciseContent({ stage, onNavigateToStage, cameFromReview }: ExerciseContentProps) {
   const [statusMessage, setStatusMessage] = useState<string>('')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -1298,17 +1324,18 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
 
   return (
     <div className="exercise-content-wrapper">
-      <StageMedia src={content.videoSrc} label={`${content.label} overview`} />
       {content.exercise.keyDecisions && (
-  <section className="exercise-section">
-    <h2>Your task</h2>
-    <ul className="decisions-list">
-      {content.exercise.keyDecisions.map((decision, index) => (
-        <li key={index}>{decision}</li>
-      ))}
-    </ul>
-  </section>
-)}
+        <section className="exercise-section">
+          <h2>Your task</h2>
+          <ul className="decisions-list">
+            {content.exercise.keyDecisions.map((decision, index) => (
+              <li key={index}>{decision}</li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <StageMedia src={content.videoSrc} label={`${content.label} overview`} />
 
       {stage === 'PLAN' && (
         <section className="artifact-section">
@@ -1411,53 +1438,42 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
           </div>
 
           <div className="artifact-card">
-            <div className="artifact-field">
-              <label>Choose what to work on</label>
-              <div className="checkbox-list">
-                {TRACKS.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    className={`checkbox-row ${selectedTrackId === t.id ? 'checkbox-row-active' : ''}`}
-                    onClick={() => setSelectedTrackId(t.id)}
-                  >
-                    <span className="checkbox-row-text">
-                      <span className="checkbox-row-title">{t.title}</span>
-                      <span className="checkbox-row-description">{t.description}</span>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="artifact-field">
-              <label>Writing for</label>
-              <p className="task-text">{track.plan.title}</p>
-            </div>
-
-            <div className="artifact-field">
-              <label>Problem</label>
-              <p className="task-text">{track.plan.problem}</p>
-            </div>
-
-            <div className="artifact-field">
-              <label>Audience</label>
-              <p className="task-text">{track.plan.audience}</p>
-            </div>
-
-            <div className="artifact-field">
-              <label>Source reference</label>
-              <a href={track.relatedReferenceUrl} target="_blank" rel="noreferrer">
-                {track.referenceLabel}
-              </a>
-            </div>
-
-            {writeFeedbackComment && (
-              <div className="artifact-field">
-                <label>Reviewer feedback</label>
-                <p className="task-text reviewer-feedback">{writeFeedbackComment}</p>
-              </div>
-            )}
+            <table className="field-table">
+              <tbody>
+                <tr>
+                  <th>Choose what to work on</th>
+                  <td>
+                    <TrackPicker selectedTrackId={selectedTrackId} onSelect={setSelectedTrackId} />
+                  </td>
+                </tr>
+                <tr>
+                  <th>Writing for</th>
+                  <td>{track.plan.title}</td>
+                </tr>
+                <tr>
+                  <th>Problem</th>
+                  <td>{track.plan.problem}</td>
+                </tr>
+                <tr>
+                  <th>Audience</th>
+                  <td>{track.plan.audience}</td>
+                </tr>
+                <tr>
+                  <th>Source reference</th>
+                  <td>
+                    <a href={track.relatedReferenceUrl} target="_blank" rel="noreferrer">
+                      {track.referenceLabel}
+                    </a>
+                  </td>
+                </tr>
+                {writeFeedbackComment && (
+                  <tr>
+                    <th>Reviewer feedback</th>
+                    <td className="reviewer-feedback">{writeFeedbackComment}</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
 
             <button
               type="button"
@@ -1558,60 +1574,54 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
           </div>
 
           <div className="artifact-card">
-            <div className="artifact-field">
-              <label>Choose what to review</label>
-              <div className="checkbox-list">
-                {TRACKS.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    className={`checkbox-row ${selectedTrackId === t.id ? 'checkbox-row-active' : ''}`}
-                    onClick={() => setSelectedTrackId(t.id)}
-                  >
-                    <span className="checkbox-row-text">
-                      <span className="checkbox-row-title">{t.title}</span>
-                      <span className="checkbox-row-description">{t.description}</span>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="artifact-field">
-              <label>What this draft needs to do</label>
-              <p className="task-text">{track.plan.successCriteria}</p>
-            </div>
-
-            <div className="artifact-field">
-              <label>Check against</label>
-              <a href={track.relatedReferenceUrl} target="_blank" rel="noreferrer">
-                {track.referenceLabel}
-              </a>
-            </div>
-
-            <div className="artifact-field">
-              <label>Pull request under review</label>
-              <a href={track.seedPrUrl} target="_blank" rel="noreferrer">
-                View the pull request on GitHub
-              </a>
-            </div>
-
-            <div className="artifact-field">
-              <label>Automated checks (run on every save)</label>
-              {checksLoading && <p className="status-message status-loading">Loading checks.</p>}
-              {!checksLoading && checks && checks.length > 0 && (
-                <ul className="checks-list">
-                  {checks.map((check) => (
-                    <li key={check.id} className={`check-item check-${checkStatusLabel(check).toLowerCase()}`}>
-                      {checkDisplayName(check)}: {checkStatusLabel(check)}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {!checksLoading && (!checks || checks.length === 0) && (
-                <p className="task-text">No check results available.</p>
-              )}
-            </div>
+            <table className="field-table">
+              <tbody>
+                <tr>
+                  <th>Choose what to review</th>
+                  <td>
+                    <TrackPicker selectedTrackId={selectedTrackId} onSelect={setSelectedTrackId} />
+                  </td>
+                </tr>
+                <tr>
+                  <th>What this draft needs to do</th>
+                  <td>{track.plan.successCriteria}</td>
+                </tr>
+                <tr>
+                  <th>Check against</th>
+                  <td>
+                    <a href={track.relatedReferenceUrl} target="_blank" rel="noreferrer">
+                      {track.referenceLabel}
+                    </a>
+                  </td>
+                </tr>
+                <tr>
+                  <th>Pull request under review</th>
+                  <td>
+                    <a href={track.seedPrUrl} target="_blank" rel="noreferrer">
+                      View the pull request on GitHub
+                    </a>
+                  </td>
+                </tr>
+                <tr>
+                  <th>Automated checks (run on every save)</th>
+                  <td>
+                    {checksLoading && <p className="status-message status-loading">Loading checks.</p>}
+                    {!checksLoading && checks && checks.length > 0 && (
+                      <ul className="checks-list">
+                        {checks.map((check) => (
+                          <li key={check.id} className={`check-item check-${checkStatusLabel(check).toLowerCase()}`}>
+                            {checkDisplayName(check)}: {checkStatusLabel(check)}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {!checksLoading && (!checks || checks.length === 0) && (
+                      <p className="task-text">No check results available.</p>
+                    )}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
 
             <div className="artifact-field">
               <label>The draft</label>
@@ -1708,36 +1718,29 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
           </div>
 
           <div className="artifact-card">
-            <div className="artifact-field">
-              <label>Choose what to publish</label>
-              <div className="checkbox-list">
-                {TRACKS.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    className={`checkbox-row ${selectedTrackId === t.id ? 'checkbox-row-active' : ''}`}
-                    onClick={() => setSelectedTrackId(t.id)}
-                  >
-                    <span className="checkbox-row-text">
-                      <span className="checkbox-row-title">{t.title}</span>
-                      <span className="checkbox-row-description">{t.description}</span>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="artifact-field">
-              <label>Has this been reviewed?</label>
-              {reviewDecisionLoading && (
-                <p className="status-message status-loading">Checking review status.</p>
-              )}
-              {!reviewDecisionLoading && reviewDecisionStatus && (
-                <p className={`review-status-badge review-status-${reviewStatusClassSuffix(reviewDecisionStatus)}`}>
-                  {reviewStatusLabel(reviewDecisionStatus)}
-                </p>
-              )}
-            </div>
+            <table className="field-table">
+              <tbody>
+                <tr>
+                  <th>Choose what to publish</th>
+                  <td>
+                    <TrackPicker selectedTrackId={selectedTrackId} onSelect={setSelectedTrackId} />
+                  </td>
+                </tr>
+                <tr>
+                  <th>Has this been reviewed?</th>
+                  <td>
+                    {reviewDecisionLoading && (
+                      <p className="status-message status-loading">Checking review status.</p>
+                    )}
+                    {!reviewDecisionLoading && reviewDecisionStatus && (
+                      <p className={`review-status-badge review-status-${reviewStatusClassSuffix(reviewDecisionStatus)}`}>
+                        {reviewStatusLabel(reviewDecisionStatus)}
+                      </p>
+                    )}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
 
             {!reviewDecisionLoading && reviewDecisionStatus && reviewDecisionStatus !== 'approved' && (
               <div className="modified-banner">
