@@ -1877,10 +1877,17 @@ export default function ExerciseContent({ stage, onNavigateToStage, cameFromRevi
             )}
 
             {checkRunStatus === 'success' && checkResultsContent && checkResultsHaveFailure(checkResultsContent) && (
-              <div className="modified-banner">
-                <p>Some checks failed. You can still publish, but the result will reflect that.</p>
-              </div>
-            )}
+  <div className="modified-banner">
+    <p>Some checks failed. You can still publish, but the result will reflect that.</p>
+    <button
+      className="style-guide-toggle"
+      type="button"
+      onClick={() => onNavigateToStage('WRITE')}
+    >
+      Edit the draft
+    </button>
+  </div>
+)}
 
             {checkRunStatus === 'success' && checkRequestId && publishSubmitStatus !== 'success' && (
               <button
