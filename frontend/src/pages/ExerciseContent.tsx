@@ -543,50 +543,54 @@ interface ReviewCommentInfo {
   rawComment: string | null
 }
 
-async function fetchReviewCommentInfo(track: Track): Promise<ReviewCommentInfo> {
-  try {
-    const res = await fetch(
-      `${WORKER_URL}pr-comments?prNumber=${track.seedPrNumber}&_=${Date.now()}`,
-      { cache: 'no-store' }
-    )
+async function fetchReviewCommentInfo(track: Track, attempts = 3): Promise<ReviewCommentInfo> {
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const res = await fetch(
+        `${WORKER_URL}pr-comments?prNumber=${track.seedPrNumber}&_=${Date.now()}`,
+        { cache: 'no-store' }
+      )
 
-    if (!res.ok) {
-      return { status: 'unknown', rawComment: null }
-    }
+      if (res.ok) {
+        const comments = await res.json()
 
-    const comments = await res.json()
-
-    if (!Array.isArray(comments) || comments.length === 0) {
-      return { status: 'not-reviewed', rawComment: null }
-    }
-
-    const latest = (() => {
-      for (let i = comments.length - 1; i >= 0; i--) {
-        const c = comments[i]
-        if (c && typeof c.body === 'string' && c.body.includes('Review decision:')) {
-          return c
+        if (!Array.isArray(comments) || comments.length === 0) {
+          return { status: 'not-reviewed', rawComment: null }
         }
+
+        let latest: { body?: string } | undefined
+        for (let i = comments.length - 1; i >= 0; i--) {
+          const c = comments[i]
+          if (c && typeof c.body === 'string' && c.body.includes('Review decision:')) {
+            latest = c
+            break
+          }
+        }
+
+        if (!latest) {
+          return { status: 'not-reviewed', rawComment: null }
+        }
+
+        let status: ReviewDecisionStatus = 'unknown'
+        if (latest.body!.includes('Review decision: Approved')) {
+          status = 'approved'
+        } else if (latest.body!.includes('Review decision: Changes requested')) {
+          status = 'changes-requested'
+        }
+
+        return { status, rawComment: latest.body! }
       }
-      return undefined
-    })()
-
-    if (!latest) {
-      return { status: 'not-reviewed', rawComment: null }
+    } catch {
+      // fall through and retry
     }
 
-    let status: ReviewDecisionStatus = 'unknown'
-    if (latest.body.includes('Review decision: Approved')) {
-      status = 'approved'
-    } else if (latest.body.includes('Review decision: Changes requested')) {
-      status = 'changes-requested'
+    if (attempt < attempts) {
+      await new Promise((resolve) => setTimeout(resolve, 700))
     }
-
-    return { status, rawComment: latest.body }
-  } catch {
-    return { status: 'unknown', rawComment: null }
   }
-}
 
+  return { status: 'unknown', rawComment: null }
+}
 function extractCommentBody(raw: string): string {
   const withoutHeader = raw.replace(/\*\*Review decision:.*?\*\*\n*/, '')
   const withoutFooter = withoutHeader.split('---')[0]
@@ -635,22 +639,30 @@ interface PublishResults {
   finalDraftContent: string
 }
 
-async function fetchPublishedFile(path: string): Promise<string | null> {
-  try {
-    const res = await fetch(
-      `${WORKER_URL}file?path=${encodeURIComponent(path)}&ref=publish-results&_=${Date.now()}`,
-      { cache: 'no-store' }
-    )
+async function fetchPublishedFile(path: string, attempts = 3): Promise<string | null> {
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const res = await fetch(
+        `${WORKER_URL}file?path=${encodeURIComponent(path)}&ref=publish-results&_=${Date.now()}`,
+        { cache: 'no-store' }
+      )
 
-    if (!res.ok) {
-      return null
+      if (res.ok) {
+        const data = await res.json()
+        if (data.content) {
+          return data.content
+        }
+      }
+    } catch {
+      // fall through and retry
     }
 
-    const data = await res.json()
-    return data.content || null
-  } catch {
-    return null
+    if (attempt < attempts) {
+      await new Promise((resolve) => setTimeout(resolve, 700))
+    }
   }
+
+  return null
 }
 
 async function pollForPublishResults(
