@@ -26,7 +26,6 @@ on:
         type: boolean
         default: false
       runAccuracyCheck:
-        description: "Run endpoint reference accuracy check"
         required: true
         type: boolean
         default: false
@@ -47,8 +46,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          persist-credentials: false
 
       - name: Write draft to file
         env:
@@ -65,149 +62,17 @@ jobs:
           echo "Review status: ${{ github.event.inputs.reviewStatus }}" >> results.md
           echo "" >> results.md
 
-      - name: Link check
-        if: ${{ github.event.inputs.runLinkCheck == 'true' }}
-        run: |
-          echo "## Link check" >> results.md
-          URLS=$(grep -oE 'https?://[^ )]+' "$DRAFT_PATH" | sort -u)
-          for URL in $URLS; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$URL" || echo "000")
-            if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
-              echo "- PASS: $URL ($STATUS)" >> results.md
-            else
-              echo "- FAIL: $URL ($STATUS)" >> results.md
-            fi
-          done
-          if [ -z "$URLS" ]; then
-            echo "- No links found in the draft." >> results.md
-          fi
-          echo "" >> results.md
-
-      - name: Heading structure check
-        if: ${{ github.event.inputs.runHeadingCheck == 'true' }}
-        run: |
-          echo "## Heading structure check" >> results.md
-          node -e "
-          const fs = require('fs');
-          const text = fs.readFileSync(process.env.DRAFT_PATH, 'utf8');
-          const lines = text.split('\n').filter(l => /^#{1,6} /.test(l));
-          let lastLevel = 0;
-          let ok = true;
-          const issues = [];
-          for (const line of lines) {
-            const level = line.match(/^(#{1,6}) /)[1].length;
-            if (lastLevel !== 0 && level > lastLevel + 1) {
-              issues.push('Heading jumps from level ' + lastLevel + ' to ' + level + ': \"' + line + '\"');
-              ok = false;
-            }
-            lastLevel = level;
-          }
-          if (ok) {
-            console.log('- PASS: heading levels increase in order, no skipped levels.');
-          } else {
-            issues.forEach(i => console.log('- FAIL: ' + i));
-          }
-          " >> results.md
-          echo "" >> results.md
-
-      - name: Code block formatting check
-        if: ${{ github.event.inputs.runCodeBlockCheck == 'true' }}
-        run: |
-          echo "## Code block formatting check" >> results.md
-          COUNT=$(grep -c '```' "$DRAFT_PATH" || true)
-          if [ $((COUNT % 2)) -eq 0 ]; then
-            echo "- PASS: all code fences are closed ($COUNT fence markers)." >> results.md
-          else
-            echo "- FAIL: an odd number of code fence markers was found ($COUNT). A code block may be unclosed." >> results.md
-          fi
-          echo "" >> results.md
-
-      - name: Instruction consistency check
-        if: ${{ github.event.inputs.runConsistencyCheck == 'true' }}
-        run: |
-          echo "## Instruction consistency check" >> results.md
-          FAILED=0
-          for PATH_FRAG in "/auth/login" "/auth/me" "/auth/refresh" "/auth/logout"; do
-            STATED=$(grep -oE "Send an? (GET|POST|PUT|DELETE) request to \`?${PATH_FRAG}" "$DRAFT_PATH" | grep -oE "GET|POST|PUT|DELETE" | head -n1)
-            ACTUAL=$(grep -oE "^(GET|POST|PUT|DELETE) https://[^ ]*${PATH_FRAG}" "$DRAFT_PATH" | grep -oE "^(GET|POST|PUT|DELETE)" | head -n1)
-            if [ -n "$STATED" ] && [ -n "$ACTUAL" ]; then
-              if [ "$STATED" = "$ACTUAL" ]; then
-                echo "- PASS: $PATH_FRAG instruction ($STATED) matches its example." >> results.md
-              else
-                echo "- FAIL: $PATH_FRAG instruction says $STATED, but the example shows $ACTUAL." >> results.md
-                FAILED=1
-              fi
-            fi
-          done
-          if [ "$FAILED" -eq 0 ]; then
-            echo "" >> results.md
-            echo "No instruction mismatches found." >> results.md
-          fi
-          echo "" >> results.md
-
-      - name: Endpoint reference accuracy check
-        if: ${{ github.event.inputs.runAccuracyCheck == 'true' }}
-        run: |
-          echo "## Endpoint reference accuracy check" >> results.md
-          node -e "
-          const fs = require('fs');
-          const text = fs.readFileSync(process.env.DRAFT_PATH, 'utf8');
-          const rows = [...text.matchAll(/\| \`(\w+)\` \| \w+ \| No \|/g)].map(m => m[1]);
-          if (rows.length === 0) {
-            console.log('- No optional parameters found to check.');
-          } else {
-            let failed = false;
-            for (const param of rows) {
-              const pattern = new RegExp(param + ' is required', 'i');
-              if (pattern.test(text)) {
-                console.log('- FAIL: ' + param + ' is documented as optional, but the example shows it as required.');
-                failed = true;
-              }
-            }
-            if (!failed) {
-              console.log('- PASS: no optional parameters are contradicted by the example.');
-            }
-          }
-          " >> results.md
-          echo "" >> results.md
-
-      - name: Install Vale
-        if: ${{ github.event.inputs.runValeCheck == 'true' }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          VALE_URL=$(curl -sL -H "Authorization: Bearer $GH_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/errata-ai/vale/releases/latest \
-            | grep "browser_download_url" \
-            | grep "Linux_64-bit.tar.gz" \
-            | cut -d '"' -f 4)
-
-          if [ -z "$VALE_URL" ]; then
-            echo "VALE_INSTALLED=false" >> "$GITHUB_ENV"
-          else
-            curl -sfL "$VALE_URL" -o vale.tar.gz && \
-            tar -xzf vale.tar.gz vale && \
-            sudo mv vale /usr/local/bin/vale && \
-            echo "VALE_INSTALLED=true" >> "$GITHUB_ENV" || \
-            echo "VALE_INSTALLED=false" >> "$GITHUB_ENV"
-          fi
-
-      - name: Vale style check
-        if: ${{ github.event.inputs.runValeCheck == 'true' }}
-        run: |
-          echo "## Vale style check" >> results.md
-          if [ "$VALE_INSTALLED" = "true" ]; then
-            VALE_OUTPUT=$(vale --config=.vale.ini "$DRAFT_PATH" 2>&1) || true
-            if [ -z "$VALE_OUTPUT" ]; then
-              echo "No style issues found." >> results.md
-            else
-              echo "$VALE_OUTPUT" >> results.md
-            fi
-          else
-            echo "Vale could not be installed for this run. This check was skipped." >> results.md
-          fi
-          echo "" >> results.md
+      - name: Run documentation checks
+        uses: ./.github/actions/run-doc-checks
+        with:
+          draft-path: ${{ env.DRAFT_PATH }}
+          run-link-check: ${{ github.event.inputs.runLinkCheck }}
+          run-heading-check: ${{ github.event.inputs.runHeadingCheck }}
+          run-code-block-check: ${{ github.event.inputs.runCodeBlockCheck }}
+          run-consistency-check: ${{ github.event.inputs.runConsistencyCheck }}
+          run-accuracy-check: ${{ github.event.inputs.runAccuracyCheck }}
+          run-vale-check: ${{ github.event.inputs.runValeCheck }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Commit check results
         env:
