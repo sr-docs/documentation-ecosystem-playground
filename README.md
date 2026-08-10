@@ -1,66 +1,37 @@
 # Documentation Ecosystem Playground
 
-Learn Docs as Code by doing it. This project walks you through a real documentation workflow, planning, writing, reviewing, publishing, and observing, using actual GitHub issues, branches, pull requests, and automation. Nothing here is simulated.
+The **Documentation Ecosystem Playground** is an interactive, "real-world" demonstration of a complete documentation lifecycle. Not a simulation; this site interacts directly with **real GitHub state**, using Issues, Pull Requests, Branches, and Actions to walk visitors through a professional documentation workflow.
 
-## Purpose
+## The Workflow Loop
+The project is structured as a five-stage loop where every action results in an observable change in the repository:
 
-Most documentation portfolios show finished writing. This one shows the system behind it: how a plan becomes a draft, how a draft gets reviewed, and how automation keeps that process honest. The goal is to demonstrate documentation systems design, not just documentation.
+1.  **PLAN (Define the Ask):** Define documentation goals by filling out a brief, which creates a **real GitHub Issue**
+2.  **WRITE (Draft It):** Select one of two tracks (Quick Start or API Reference) to draft content, commit to a seed branch, and request a review
+3.  **REVIEW (Check It):** Act as a reviewer by reading live drafts and CI check results, then posting **real comments** to a Pull Request
+4.  **PUBLISH (Ship It):** Run a battery of automated checks (e.g., link validation, Vale prose linting) and "publish" results to a dedicated history branch
+5.  **OBSERVE (Learn from It):** Review the commit history of published content and file a final **observation issue** to close the loop for future visitors
 
-## Core principles
+## Technical Architecture
+The system utilizes a modern, decoupled architecture to manage security and real-time state:
 
-| Principle | Decision |
-|---|---|
-| Unit of learning | A workflow slice, one real piece of work per stage |
-| Center of gravity | The documentation ecosystem, not a single document |
-| Learning style | Interactive. You do the work, not read about it |
-| Automation | GitHub-native. No separate backend, no database |
-| Portfolio goal | Demonstrate documentation systems design |
+*   **Frontend:** A static **React** application hosted on **GitHub Pages**
+*   **Proxy Layer:** A **Cloudflare Worker** that securely holds credentials (`GITHUB_TOKEN`, `WRITE_PAT`), manages rate limiting (10 req/min/IP), and validates all visitor input before dispatching to GitHub
+*   **Backend:** The **GitHub REST API** and **GitHub Actions** serve as the engine for state retrieval and asynchronous execution
 
-## The five stages
+## Security & Safeguards
+Because the site allows anonymous visitors to trigger GitHub workflows, several safeguards are in place:
+*   **KNOWN_TRACKS Allowlist:** Restricts interactions to specific, hardcoded tracks (Quick Start Guide and API Reference)
+*   **Input Validation:** Every workflow validates input fields, types, and lengths before execution
+*   **Injection Prevention:** Visitor input is passed via environment variables (`env:`) rather than being spliced directly into script bodies, closing potential script and heredoc injection vectors
 
-| Stage | Purpose | GitHub primitive | What you do |
-|---|---|---|---|
-| PLAN | Define the work | Issue | Write a brief: the problem, the audience, what success looks like |
-| WRITE | Create the content | Branch and pull request | Draft a quick start guide, submit it as a real PR |
-| REVIEW | Check the work | Pull request comment | Read the draft against a reference, approve it or request changes |
-| PUBLISH | Ship it | GitHub Actions | Pick which checks to run, fix what fails, publish |
-| OBSERVE | Learn from it | Issues and iteration | Look at real publish history, file an issue with what you'd do next |
+## Deliberate Limitations
+To maintain the "everything is real" principle without a complex visitor identity system, the project accepts certain constraints:
+*   **Comment-Based Reviews:** Because the system uses shared credentials, GitHub blocks formal self-approval. Reviews are instead handled via real PR comments
+*   **Watermarked Content:** The system does not "gate" publishing; instead, it **watermarks** unreviewed content to maintain transparency and honesty about the review status
+*   **Scheduled Cleanup:** To prevent repository clutter, a daily maintenance workflow deletes temporary branches and stale PRs older than 7 days
 
-All five stages are live and connected to real GitHub state.
-
-## Your path through it
-
-1. Land on the homepage.
-2. Pick a stage.
-3. Do the work: fill in a form, draft content, leave a review comment, run a check, or write an observation.
-4. Watch GitHub respond in real time, an issue appears, a PR opens, a check runs.
-5. Move to the next stage, or explore another one.
-
-## What you'll come away understanding
-
-| If you try this stage | You'll understand |
-|---|---|
-| PLAN | How documentation work gets scoped before anyone writes a word |
-| WRITE | How real teams draft content in branches and pull requests, not documents |
-| REVIEW | What a reviewer actually checks, and why review is a gate, not a formality |
-| PUBLISH | Why publishing isn't a single click, and what automated checks catch |
-| OBSERVE | How teams decide what to improve once something is already live |
-
-## Known limitations
-
-Two things are worth stating plainly, since they're deliberate choices, not oversights.
-
-**REVIEW posts a comment, not a formal GitHub review.** The pull request under review and the account running REVIEW's automation are the same identity, and GitHub won't let an account approve its own pull request. Rather than add a second account just to satisfy this, REVIEW posts a real, visible comment on the actual PR instead. The review conversation is real. The formal approval mechanism isn't demonstrated.
-
-**REVIEW always loads the same example pull request.** WRITE lets you open a real PR from any open plan, but REVIEW doesn't yet let you review the PR you just created, or pick from a list of open ones. It uses one fixed example instead: a draft seeded with a real, catchable error, and a correct reference to check it against. Building a picker here would surface a harder problem this project doesn't solve, there's no way to tell a visitor reviewing their own recent submission apart from one reviewing someone else's, since there's no visitor identity system at all.
-
-More detail on both, along with the reasoning behind every major decision in this project, lives in `docs/design.md`.
-
-## Project status
-
-| Area | Status |
-|---|---|
-| Core lifecycle (PLAN through OBSERVE) | Built and working end to end |
-| GitHub Pages deployment | Live |
-| Multiple activities per stage | Not built. Each stage runs one real exercise, by design, not by gap |
-| AI-assisted workflows | Deferred. Part of the original concept, intentionally left for later |
+## Integrated Workflows
+The project automates various documentation checks during the **PUBLISH** stage, including:
+*   **Link & Heading Checks:** Verifies all links resolve and heading hierarchies are correct
+*   **Instruction Consistency:** Ensures stated methods match provided examples
+*   **Vale Style Check:** Validates prose against established style guidelines

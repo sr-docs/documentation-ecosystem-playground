@@ -7,23 +7,31 @@ interface IntroPageProps {
 
 export default function IntroPage({ onContinue }: IntroPageProps) {
   return (
-    <div className="intro-page">
+    <main className="intro-page" id="main-content">
       <div className="intro-content">
-        <h1>Documentation Ecosystem Playground</h1>
-        <p>Write, review, and ship real documentation, the way engineering teams actually do it.</p>
-
         <div className="intro-media">
-          <StageMedia src="media/intro/intro.mp4" label="Introduction" />
+          <StageMedia src="media/intro/intro.mp4" label="Introduction to the docs-as-code workflow" />
         </div>
 
-        <p className="intro-note">
-          This is real. Every issue, comment, and pull request you create here actually exists on GitHub.
-        </p>
+        <h1>Great software needs documentation that keeps up</h1>
 
-        <button className="intro-button" type="button" onClick={onContinue}>
-          Let's go
+        <p>
+          I build documentation workflows that ship with every release, accurate and up-to-date.
+        </p>
+        <p>
+          In this interactive portfolio, explore a GitHub-based workflow where documentation moves like code: issues for planning, pull requests for drafts, reviews for feedback, and GitHub Actions for publishing.
+        </p>
+        
+        <button 
+          className="intro-button" 
+          type="button" 
+          onClick={onContinue}
+          aria-label="Start exploring the workflow"
+        >
+          Explore the workflow
+          <span className="intro-button-arrow" aria-hidden="true">→</span>
         </button>
       </div>
-    </div>
+    </main>
   )
 }

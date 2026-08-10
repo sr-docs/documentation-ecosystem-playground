@@ -1,19 +1,45 @@
 .homepage {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  min-height: calc(100vh - var(--site-header-height, 4.25rem));
   padding: var(--space-8) var(--space-4);
+  position: relative;
+}
+
+/* Subtle background gradient */
+.homepage::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    radial-gradient(ellipse at 0% 0%, var(--color-accent-soft) 0%, transparent 50%),
+    radial-gradient(ellipse at 100% 100%, rgba(15, 110, 100, 0.05) 0%, transparent 40%);
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.7;
 }
 
 .hero {
   text-align: center;
-  margin-bottom: var(--space-12);
+  margin-bottom: var(--space-8);
+}
+
+.hero-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
 }
 
 .hero h1 {
-  font-size: 2rem;
+  font-size: clamp(1.5rem, 4vw, 2rem);
   margin: 0 0 var(--space-2) 0;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .hero p {
@@ -25,7 +51,8 @@
 .workflow {
   display: flex;
   justify-content: center;
-  margin-bottom: var(--space-12);
+  margin-bottom: var(--space-8);
+  padding: var(--space-4) 0;
 }
 
 .context {
@@ -35,7 +62,54 @@
 }
 
 .hero-note {
-  margin-top: var(--space-2);
-  font-size: 0.9rem;
+  margin-top: var(--space-3);
+  font-size: 0.85rem;
   color: var(--color-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
 }
+
+
+.home-title-button {
+  background: none;
+  border: none;
+  padding: var(--space-2);
+  margin: 0 auto;
+  display: block;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  border-radius: var(--radius-md);
+  transition: all var(--spring-snappy);
+}
+
+.home-title-button:hover {
+  background: var(--color-accent-soft);
+}
+
+.home-title-button:hover h1 {
+  color: var(--color-accent);
+}
+
+.home-title-button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 4px;
+  border-radius: var(--radius-sm);
+}
+
+.exercise-container {
+  scroll-margin-top: var(--space-4);
+}
+
+@media (max-width: 640px) {
+  .hero h1 {
+    font-size: 1.5rem;
+  }
+
+  .hero-note {
+    font-size: 0.8rem;
+  }
+}
+
