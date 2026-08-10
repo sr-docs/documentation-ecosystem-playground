@@ -1,7 +1,12 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useCallback } from 'react'
 import WorkflowStages from '../components/WorkflowStages'
 import ExerciseContent from './ExerciseContent'
+import { OnboardingTour } from '../components/OnboardingTour'
+import { StickyBreadcrumb } from '../components/Breadcrumbs'
+import { getStageContent } from '../data/stageContent'
 import '../styles/HomePage.css'
+import '../styles/OnboardingTour.css'
+import '../styles/Breadcrumbs.css'
 
 interface HomePageProps {
   tryingStage: string | null
@@ -19,6 +24,7 @@ export default function HomePage({
   cameFromReview,
 }: HomePageProps) {
   const exerciseRef = useRef<HTMLDivElement>(null)
+  const workflowRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
     if (tryingStage && exerciseRef.current) {
@@ -26,30 +32,63 @@ export default function HomePage({
     }
   }, [tryingStage])
 
+  const handleGoHome = () => {
+    onGoHome()
+  }
+
+  const handleScrollToTop = useCallback(() => {
+    if (workflowRef.current) {
+      workflowRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }, [])
+
+  const currentStageLabel = tryingStage ? (getStageContent(tryingStage)?.label || tryingStage) : ''
+
   return (
-    <div className="homepage">
-      <section className="hero">
-        <button className="home-title-button" type="button" onClick={onGoHome}>
+    <main className="homepage" id="main-content">
+      <OnboardingTour />
+
+      {tryingStage && (
+        <StickyBreadcrumb
+          currentStage={currentStageLabel}
+          onScrollToTop={handleScrollToTop}
+          workflowRef={workflowRef}
+        />
+      )}
+
+      <header className="hero">
+        <button 
+          className="home-title-button" 
+          type="button" 
+          onClick={handleGoHome}
+          aria-label="Return to introduction"
+        >
           <h1>SR's Docs as Code Playground</h1>
         </button>
         <p className="hero-note">
-          Every issue, comment, and pull request you create here actually exists on GitHub!
+          Every issue, comment, and pull request you create here are visible on GitHub
         </p>
-      </section>
+      </header>
 
-      <section className="workflow">
+      <nav className="workflow" ref={workflowRef} aria-label="Workflow stages">
         <WorkflowStages selectedStage={tryingStage} onSelectStage={onTryStage} />
-      </section>
+      </nav>
 
       {tryingStage && (
-        <div ref={exerciseRef}>
+        <section 
+          ref={exerciseRef} 
+          aria-label={`${tryingStage} stage exercise`}
+          className="exercise-container"
+        >
           <ExerciseContent
             stage={tryingStage}
             onNavigateToStage={onNavigateToStage}
             cameFromReview={cameFromReview}
           />
-        </div>
+        </section>
       )}
-    </div>
+    </main>
   )
 }
