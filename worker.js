@@ -172,9 +172,11 @@ async function checkRateLimit(request, env) {
   }
 
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
-  const key = `rate:${ip}`;
-  const limit = 10;
+  const isPost = request.method === 'POST';
+  const limit = isPost ? 10 : 60;
   const windowSeconds = 60;
+  const windowId = Math.floor(Date.now() / 1000 / windowSeconds);
+  const key = `rate:${isPost ? 'post' : 'get'}:${ip}:${windowId}`;
 
   const current = await env.RATE_LIMIT.get(key);
   const count = current ? parseInt(current, 10) : 0;
@@ -183,7 +185,7 @@ async function checkRateLimit(request, env) {
     return false;
   }
 
-  await env.RATE_LIMIT.put(key, String(count + 1), { expirationTtl: windowSeconds });
+  await env.RATE_LIMIT.put(key, String(count + 1), { expirationTtl: windowSeconds + 5 });
   return true;
 }
 
@@ -265,7 +267,9 @@ async function handleFile(request, env) {
       Authorization: `Bearer ${env.WRITE_PAT}`,
       Accept: 'application/vnd.github+json',
       'User-Agent': 'doc-playground-proxy',
+      'Cache-Control': 'no-cache',
     },
+    cf: { cacheTtl: 0 },
   });
 
   if (!githubResponse.ok) {

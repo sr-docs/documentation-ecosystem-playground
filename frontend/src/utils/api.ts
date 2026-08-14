@@ -359,7 +359,7 @@ export async function submitPRReview(
   onStatusUpdate('Review posted.')
 }
 
-async function fetchPublishedFile(path: string, attempts = 3): Promise<string | null> {
+async function fetchPublishedFile(path: string, attempts = 1): Promise<string | null> {
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
       const res = await fetch(
@@ -500,7 +500,10 @@ export async function fetchPublishHistory(): Promise<PublishHistoryEntry[]> {
 
     const detailed = await Promise.all(
       entries.slice(0, 10).map(async (entry) => {
-        const resultsContent = await fetchPublishedFile(`publish-results/${entry.requestId}/results.md`)
+        const resultsContent = await fetchPublishedFile(
+          `publish-results/${entry.requestId}/results.md`,
+          3
+        )
         if (!resultsContent) {
           return { ...entry, reviewStatus: 'unknown', failCount: 0 }
         }
