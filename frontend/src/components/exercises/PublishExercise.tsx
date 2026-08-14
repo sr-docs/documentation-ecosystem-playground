@@ -13,7 +13,7 @@ import {
   getErrorMessage,
   type PublishChecks,
 } from '../../utils/api'
-import { REVIEW_STATUS_LABELS, ERROR_MESSAGES } from '../../constants'
+import { GITHUB_OWNER, GITHUB_REPO, REVIEW_STATUS_LABELS, ERROR_MESSAGES } from '../../constants'
 
 type ReviewDecisionStatus = 'approved' | 'changes-requested' | 'not-reviewed' | 'unknown'
 
@@ -35,6 +35,8 @@ function reviewStatusClassSuffix(raw: string): string {
   }
   return 'unknown'
 }
+
+const ACTIONS_PAGE_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/actions`
 
 export function PublishExercise({
   onNavigateToStage,
@@ -282,6 +284,11 @@ export function PublishExercise({
             <div className="draft-preview-rendered" role="log" aria-label="Check results">
               <MarkdownPreview content={checkResultsContent} />
             </div>
+            <p className="status-detail">
+              <a href={ACTIONS_PAGE_URL} target="_blank" rel="noreferrer">
+                View this workflow on GitHub
+              </a>
+            </p>
           </div>
         )}
 
@@ -320,6 +327,11 @@ export function PublishExercise({
             <Button variant="primary" onClick={() => onNavigateToStage('OBSERVE')}>
               Continue to OBSERVE
             </Button>
+            <p className="status-detail">
+              <a href={ACTIONS_PAGE_URL} target="_blank" rel="noreferrer">
+                View this workflow on GitHub
+              </a>
+            </p>
           </SuccessStatus>
         )}
 
