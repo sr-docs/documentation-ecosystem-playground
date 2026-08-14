@@ -46,6 +46,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Write draft to file
         env:
@@ -121,8 +123,14 @@ jobs:
           cp quick-start-guide.md "publish-results/$REQUEST_ID/quick-start-guide.md"
           cp results.md "publish-results/$REQUEST_ID/results.md"
 
+          if [ -z "$GH_TOKEN" ]; then
+            echo "WRITE_PAT is not set; cannot push publish results." >&2
+            exit 1
+          fi
+
           git config user.name "Documentation Ecosystem Playground"
           git config user.email "actions@github.com"
           git add "publish-results/$REQUEST_ID"
           git commit -m "Publish results for $REQUEST_ID"
+          git config --local --unset-all http.https://github.com/.extraheader || true
           git push "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" "$BRANCH"
