@@ -225,8 +225,16 @@
   font-size: 1rem;
   font-family: inherit;
   box-sizing: border-box;
+  color: var(--color-ink);
+  caret-color: var(--color-ink);
   background: var(--color-paper);
   transition: all var(--transition-fast);
+}
+
+.artifact-field input::placeholder,
+.artifact-field textarea::placeholder {
+  color: var(--color-muted);
+  opacity: 1;
 }
 
 .artifact-field input:hover,

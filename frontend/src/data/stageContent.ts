@@ -35,9 +35,9 @@ export const stages: StageContent[] = [
         'Your team just started a new sprint. The docs team joins sprint planning from day one, not after the code ships. A new authentication API is on the board. Decide what documentation it needs while planning is still open.',
       task: 'Define what to write, who reads it, and how you measure success.',
       keyDecisions: [
-        'Identify the target audience: developers, integrators, or internal teams',
-        'List the documentation types: quick start, API reference, examples',
-        'Define success metrics: adoption rate, support ticket reduction',
+        'Identify the target audience (for example, developers, integrators, or internal teams)',
+        'List the documentation types (for example, quick start, API reference, examples)',
+        'Define success metrics (for example, adoption rate, support ticket reduction)',
         'Note any dependencies on other teams or releases',
       ],
     },
@@ -58,12 +58,11 @@ export const stages: StageContent[] = [
     exercise: {
       title: 'Documentation Writing',
       scenario:
-        'Two real pull requests wait below. Each contains a bug: something the draft claims that its own example quietly contradicts. Pick one and find the mismatch.',
+        'Pick any one of the two documentation drafts here, read the problem statement, and view the reference material if required.',
       task: 'Pick a draft, fix the issue, save your changes, then request a review.',
       keyDecisions: [
-        'Compare every instruction against its example',
+        'Compare the draft against its source reference',
         'Decide what else needs tightening',
-        'Keep the fix scoped to the actual problem',
         'Save before requesting review',
       ],
     },
@@ -84,10 +83,9 @@ export const stages: StageContent[] = [
     exercise: {
       title: 'Documentation Review',
       scenario:
-        "You're the reviewer. Pick a draft below. You'll see what the writer delivered and what to check against: a reference doc for one, the actual source code for the other.",
+        "You're the reviewer now. Pick a draft submitted by the writer, and check for technical accuracy.",
       task: 'Read the draft, compare it against the reference, leave a comment, then approve or request changes.',
       keyDecisions: [
-        'Check technical accuracy against the reference',
         'Decide if an issue blocks publishing or can wait',
         'Write a comment specific enough to act on',
         'Choose to approve or request changes',

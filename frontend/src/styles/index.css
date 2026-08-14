@@ -62,11 +62,14 @@
 
   /* Touch targets */
   --min-touch-target: 44px;
+
+  color-scheme: light;
 }
 
 /* Dark mode support */
 @media (prefers-color-scheme: dark) {
   :root {
+    color-scheme: dark;
     --color-ink: #e8eaed;
     --color-muted: #9aa0a6;
     --color-paper: #0d1117;
@@ -94,6 +97,7 @@
 
 /* Manual dark mode toggle support */
 [data-theme="dark"] {
+  color-scheme: dark;
   --color-ink: #e8eaed;
   --color-muted: #9aa0a6;
   --color-paper: #0d1117;
@@ -119,6 +123,7 @@
 }
 
 [data-theme="light"] {
+  color-scheme: light;
   --color-ink: #1a1d21;
   --color-muted: #4a5260;
   --color-paper: #f8f9fb;
