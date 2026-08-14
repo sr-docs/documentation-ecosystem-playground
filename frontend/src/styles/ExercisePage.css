@@ -715,6 +715,9 @@
   display: block;
   margin-bottom: var(--space-6);
   background: var(--color-paper);
+  user-select: none;
+  -webkit-user-drag: none;
+  -webkit-touch-callout: none;
 }
 
 .media-placeholder {
@@ -736,6 +739,47 @@
   font-size: 0.85rem;
   color: var(--color-muted);
   margin: 0;
+}
+
+.media-transcript {
+  margin: 0 0 var(--space-6) 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-paper);
+  text-align: left;
+}
+
+.media-transcript summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.media-transcript summary:focus-visible {
+  outline: 2px solid var(--color-accent, #0b6e6e);
+  outline-offset: 2px;
+}
+
+.media-transcript p,
+.media-transcript-text,
+.media-transcript-list {
+  margin: var(--space-3) 0 0;
+  color: var(--color-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.media-transcript-text {
+  white-space: pre-line;
+}
+
+.media-transcript-list {
+  padding-left: 1.2rem;
+}
+
+.media-transcript-list li + li {
+  margin-top: 0.3rem;
 }
 
 .exercise-overview-table {
