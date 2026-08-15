@@ -2,18 +2,23 @@
 .tour-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(4px);
+  background: rgba(26, 29, 33, 0.45);
   z-index: 10000;
   cursor: pointer;
+}
+
+/* When a stage is highlighted, dimming comes from the spotlight hole
+   so this layer stays transparent and does not cover the target. */
+.tour-overlay-clear {
+  background: transparent;
 }
 
 /* Spotlight on target element */
 .tour-spotlight {
   position: fixed;
   border-radius: var(--radius-lg);
-  box-shadow: 
-    0 0 0 9999px rgba(0, 0, 0, 0.7),
+  box-shadow:
+    0 0 0 9999px rgba(26, 29, 33, 0.45),
     0 0 0 4px var(--color-accent),
     0 0 24px var(--color-accent-glow);
   z-index: 10001;
@@ -22,8 +27,67 @@
 }
 
 @keyframes spotlightPulse {
-  0%, 100% { box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.7), 0 0 0 4px var(--color-accent), 0 0 24px var(--color-accent-glow); }
-  50% { box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.7), 0 0 0 6px var(--color-accent), 0 0 32px var(--color-accent-glow); }
+  0%, 100% {
+    box-shadow:
+      0 0 0 9999px rgba(26, 29, 33, 0.45),
+      0 0 0 4px var(--color-accent),
+      0 0 24px var(--color-accent-glow);
+  }
+  50% {
+    box-shadow:
+      0 0 0 9999px rgba(26, 29, 33, 0.45),
+      0 0 0 6px var(--color-accent),
+      0 0 32px var(--color-accent-glow);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) .tour-overlay {
+    background: rgba(0, 0, 0, 0.35);
+  }
+
+  html:not([data-theme="light"]) .tour-overlay-clear {
+    background: transparent;
+  }
+
+  html:not([data-theme="light"]) .tour-spotlight {
+    box-shadow:
+      0 0 0 9999px rgba(0, 0, 0, 0.35),
+      0 0 0 4px var(--color-accent),
+      0 0 24px var(--color-accent-glow);
+    animation: spotlightPulseDark 2s ease-in-out infinite;
+  }
+}
+
+[data-theme="dark"] .tour-overlay {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="dark"] .tour-overlay-clear {
+  background: transparent;
+}
+
+[data-theme="dark"] .tour-spotlight {
+  box-shadow:
+    0 0 0 9999px rgba(0, 0, 0, 0.35),
+    0 0 0 4px var(--color-accent),
+    0 0 24px var(--color-accent-glow);
+  animation: spotlightPulseDark 2s ease-in-out infinite;
+}
+
+@keyframes spotlightPulseDark {
+  0%, 100% {
+    box-shadow:
+      0 0 0 9999px rgba(0, 0, 0, 0.35),
+      0 0 0 4px var(--color-accent),
+      0 0 24px var(--color-accent-glow);
+  }
+  50% {
+    box-shadow:
+      0 0 0 9999px rgba(0, 0, 0, 0.35),
+      0 0 0 6px var(--color-accent),
+      0 0 32px var(--color-accent-glow);
+  }
 }
 
 /* Tour Tooltip */

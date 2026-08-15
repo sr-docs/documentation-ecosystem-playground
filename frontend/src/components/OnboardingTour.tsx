@@ -230,7 +230,11 @@ export function OnboardingTour({ onComplete }: OnboardingTourProps) {
 
   const tourUi = (
     <>
-      <div className="tour-overlay" onClick={handleSkip} aria-hidden="true" />
+      <div
+        className={`tour-overlay${targetRect ? ' tour-overlay-clear' : ''}`}
+        onClick={handleSkip}
+        aria-hidden="true"
+      />
 
       {targetRect && (
         <div
